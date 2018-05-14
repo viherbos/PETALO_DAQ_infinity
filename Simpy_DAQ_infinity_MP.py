@@ -7,7 +7,7 @@ from simpy.events import AnyOf, AllOf, Event
 import sys
 sys.path.append("../PETALO_analysis/")
 import fit_library
-import HF_translator as HFT
+#import HF_translator as HFT
 import os
 import multiprocessing as mp
 from functools import partial
@@ -15,7 +15,7 @@ from SimLib import DAQ_infinity as DAQ
 from SimLib import HF_files as HF
 import time
 from SimLib import config_sim as CFG
-from SimLib import pet_graphics as PG
+#from SimLib import pet_graphics as PG
 import pandas as pd
 import math
 import argparse

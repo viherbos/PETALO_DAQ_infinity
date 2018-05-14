@@ -5,7 +5,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from simpy.events import AnyOf, AllOf, Event
 import sys
-import HF_translator as HFT
+#import HF_translator as HFT
 import os
 import pandas as pd
 
