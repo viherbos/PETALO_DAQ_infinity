@@ -86,53 +86,30 @@ def DAQ_sim(sim_info):
     print ("Number of SiPM : %d \nNumber of ASICS : %d " % (n_sipms,n_asics))
     print ("Number of L1 : %d " % (n_L1))
 
-    SiMP_Matrix_I = np.reshape(np.arange(0,n_sipms_I),
+    SiPM_Matrix_I = np.reshape(np.arange(0,n_sipms_I),
                                 (param.P['TOPOLOGY']['n_rows'],
                                 param.P['TOPOLOGY']['sipm_int_row']))
-    SiMP_Matrix_O = np.reshape(np.arange(n_sipms_I,n_sipms),
+    SiPM_Matrix_O = np.reshape(np.arange(n_sipms_I,n_sipms),
                                 (param.P['TOPOLOGY']['n_rows'],
                                 param.P['TOPOLOGY']['sipm_ext_row']))
     # SiPM matrixs Inner face and Outer face
 
+    topology = {'n_sipms_I':n_sipms_I, 'n_sipms_O':n_sipms_O, 'n_sipms': n_sipms,
+            'n_asics_I':n_asics_I, 'n_asics_f_I':n_asics_f_I,'n_asics_p_I':n_asics_p_I,
+            'n_asics_O':n_asics_O, 'n_asics_f_O':n_asics_f_O,'n_asics_p_O':n_asics_p_O,
+            'n_asics':n_asics, 'n_L1':n_L1, 'n_L1_f':n_L1_f, 'n_L1_p':n_L1_p}
+
     # Generation of Iterable for pool.map
-    L1_Slice=[]
-    count = 0
-
-    SiPM_ASIC_Slice=[]
-    # Generate Slice of ASICs (SiPM) for L1
-    for i in range(n_asics_I):
-        if (count < param.P['L1']['n_asics']-1):
-            SiPM_ASIC_Slice.append(np.reshape(SiMP_Matrix_I[:,i*4:(i+1)*4],-1))
-            count += 1
-        else:
-            SiPM_ASIC_Slice.append(np.reshape(SiMP_Matrix_I[:,i*4:(i+1)*4],-1))
-            L1_Slice.append(SiPM_ASIC_Slice)
-            SiPM_ASIC_Slice=[]
-            count = 0
-
-    # if (n_asics_p_I == 1):
-    #     L1_Slice.append(SiPM_ASIC_Slice)
-
-
-    for i in range(n_asics_O):
-        if (count < param.P['L1']['n_asics']-1):
-            SiPM_ASIC_Slice.append(np.reshape(SiMP_Matrix_O[:,i*4:(i+1)*4],-1))
-            count += 1
-        else:
-            SiPM_ASIC_Slice.append(np.reshape(SiMP_Matrix_O[:,i*4:(i+1)*4],-1))
-            L1_Slice.append(SiPM_ASIC_Slice)
-            SiPM_ASIC_Slice=[]
-            count = 0
-
-    if (n_L1_p == 1):
-        L1_Slice.append(SiPM_ASIC_Slice)
-
-    print ("Number of Instanciated L1 = %d" % (len(L1_Slice)))
-    for i in range(len(L1_Slice)):
-        print ("L1 number %d has %d ASICs" % (i,len(L1_Slice[i])))
+    # Mapping Function
+    try:
+        style = param.P['L1']['map_style']
+        L1_Slice = DAQ.SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style)
+    except:
+        # JSON file doesn't include mapping option
+        L1_Slice = DAQ.SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O,
+                                         topology, param, 'striped')
 
     # Multiprocess Pool Management
-
     kargs = {'sim_info':sim_info}
     DAQ_map = partial(L1_sch, **kargs)
 
@@ -148,12 +125,9 @@ def DAQ_sim(sim_info):
     #pool_output = DAQ_map(L1_Slice[0])
 
     elapsed_time = time.time()-start_time
-    print ("IT TOOK SKYNET %d SECONDS TO RUN THIS SIMULATION" % elapsed_time)
+    print ("SKYNET GAINED SELF-AWARENESS AFTER %d SECONDS" % elapsed_time)
 
-    topology = {'n_sipms_I':n_sipms_I, 'n_sipms_O':n_sipms_O, 'n_sipms': n_sipms,
-            'n_asics_I':n_asics_I, 'n_asics_f_I':n_asics_f_I,'n_asics_p_I':n_asics_p_I,
-            'n_asics_O':n_asics_O, 'n_asics_f_O':n_asics_f_O,'n_asics_p_O':n_asics_p_O,
-            'n_asics':n_asics, 'n_L1':n_L1, 'n_L1_f':n_L1_f, 'n_L1_p':n_L1_p}
+
 
     return pool_output,topology
 

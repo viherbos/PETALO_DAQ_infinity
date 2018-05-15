@@ -454,3 +454,122 @@ class L1(object):
                     'data_out':self.out_stream}
 
         return output
+
+
+def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
+
+    # if style == "striped":
+    #     L1_Slice=[]
+    #     count = 0
+    #     SiPM_ASIC_Slice=[]
+    #     # Generate Slice of ASICs (SiPM) for L1
+    #     for i in range(topology['n_asics_I']):
+    #         if (count < param.P['L1']['n_asics']-1):
+    #             SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_I[:,i*4:(i+1)*4],-1))
+    #             count += 1
+    #         else:
+    #             SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_I[:,i*4:(i+1)*4],-1))
+    #             L1_Slice.append(SiPM_ASIC_Slice)
+    #             SiPM_ASIC_Slice=[]
+    #             count = 0
+    #     for i in range(topology['n_asics_O']):
+    #         if (count < param.P['L1']['n_asics']-1):
+    #             SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+    #             count += 1
+    #         else:
+    #             SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+    #             L1_Slice.append(SiPM_ASIC_Slice)
+    #             SiPM_ASIC_Slice=[]
+    #             count = 0
+    #
+    #     if (topology['n_L1_p'] == 1):
+    #         L1_Slice.append(SiPM_ASIC_Slice)
+
+
+    if style == "mixed":
+        L1_Slice=[]
+        SiPM_ASIC_Slice=[]
+        count = 0
+
+        for i in range(topology['n_asics_I']):
+            if (count < param.P['L1']['n_asics']-2):
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_I[:,i*4:(i+1)*4],-1))
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+                count += 2
+            else:
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_I[:,i*4:(i+1)*4],-1))
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+                L1_Slice.append(SiPM_ASIC_Slice)
+                SiPM_ASIC_Slice=[]
+                count = 0
+
+        for i in range(topology['n_asics_O']-topology['n_asics_I']):
+            if (count < param.P['L1']['n_asics']-1):
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+                count += 1
+            else:
+                SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
+                L1_Slice.append(SiPM_ASIC_Slice)
+                SiPM_ASIC_Slice=[]
+                count = 0
+
+        if (topology['n_L1_p'] == 1):
+            L1_Slice.append(SiPM_ASIC_Slice)
+
+
+    if style == "striped":
+        L1_Slice=[]
+        L1_aux_Slice=[]
+        count_ch   = 0
+        count_asic = 0
+        count_L1   = 0
+        ASIC_Slice=[]
+        SiPM_Slice=[]
+
+        # Generate Slice of ASICs (SiPM) for L1
+        for k in range(param.P['TOPOLOGY']['sipm_int_row']):
+            for j in range(param.P['TOPOLOGY']['n_rows']):
+                SiPM_Slice.append(SiPM_Matrix_I[j,k])
+                count_ch += 1
+                if count_ch == param.P['TOFPET']['n_channels']:
+                    ASIC_Slice.append(SiPM_Slice)
+                    SiPM_Slice = []
+                    count_ch = 0
+        if (count_ch > 0):
+            ASIC_Slice.append(SiPM_Slice)
+
+        count_ch = 0
+        SiPM_Slice=[]
+        for k in range(param.P['TOPOLOGY']['sipm_ext_row']):
+            for j in range(param.P['TOPOLOGY']['n_rows']):
+                SiPM_Slice.append(SiPM_Matrix_O[j,k])
+                count_ch += 1
+                if count_ch == param.P['TOFPET']['n_channels']:
+                    ASIC_Slice.append(SiPM_Slice)
+                    SiPM_Slice = []
+                    count_ch = 0
+        if (count_ch > 0):
+            ASIC_Slice.append(SiPM_Slice)
+
+        # Number of ASICs
+        print ("CHECK Number of ASICS = %d" % (len(ASIC_Slice)))
+
+
+        for i in range(len(ASIC_Slice)):
+            L1_aux_Slice.append(ASIC_Slice[i])
+            count_asic += 1
+            if count_asic == param.P['L1']['n_asics']:
+                L1_Slice.append(L1_aux_Slice)
+                L1_aux_Slice = []
+                count_asic = 0
+        if count_asic > 0:
+            L1_Slice.append(L1_aux_Slice)
+
+
+
+    print ("Number of Instanciated L1 = %d" % (len(L1_Slice)))
+    for i in range(len(L1_Slice)):
+        print ("L1 number %d has %d ASICs" % (i,len(L1_Slice[i])))
+
+
+    return L1_Slice
