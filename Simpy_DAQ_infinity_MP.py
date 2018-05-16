@@ -181,6 +181,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
     TDC = np.array([A[i][1] for i in range(len(A))])
 
 
+
     prev=0
     for i in TDC:
         if (i != prev):
@@ -188,6 +189,8 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
             n_TDC = np.concatenate((n_TDC,[np.sum(cond)]),axis=0)
             i_TDC = np.concatenate((i_TDC,[i]),axis=0)
             prev = i
+    # Scan TDC list : n_TDC number of dataframes with same i_TDC
+    # i_TDC list of different TDC
 
     # Data table building
     event = 0
@@ -197,6 +200,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
     for i in i_TDC:
         for j in range(int(n_TDC[event])):
             for l in range(int(A[A_index][0])):
+                #Number od data in Dataframe
                 data[event,int(A[A_index][2*l+2])-1000] = A[A_index][2*l+3]
 
             A_index += 1
@@ -208,6 +212,18 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
     for i in range(len(A)):
         n_words[i] = A[i][0]
 
+    time_vector = np.add.accumulate(timing)
+    #Event number location
+    event_order = []
+    cnt = 0
+    for i in i_TDC:
+        locked = np.argwhere(time_vector==i)
+        for j in locked:
+            # Sometimes we have the same TDC for consecutive events
+            event_order.append(time_vector[int(j)])
+            cnt += 1
+
+
 
     output = {'data': data,
               'L1': {'in_time': in_time, 'out_time': out_time,
@@ -217,7 +233,9 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
                         'lost_outlink':lost_outlink,
                         'log_channels':log_channels,
                         'log_outlink':log_outlink},
-              'compress': n_words
+              'compress': n_words,
+              'tstamp_event':np.array(event_order),
+              'timestamp':time_vector
             }
 
 
@@ -459,7 +477,9 @@ if __name__ == '__main__':
                         'outlink'  :out['ASICS']['lost_outlink'].sum(),
                         'L1b'      :np.array(out['L1']['lostL1b']).sum()
                       },
-              'compress':out['compress']
+              'compress':out['compress'],
+              'tstamp_event':out['tstamp_event'],
+              'timestamp':out['timestamp']
             }
 
     DAQ_dump.write_out(out['data'],topology,logs)

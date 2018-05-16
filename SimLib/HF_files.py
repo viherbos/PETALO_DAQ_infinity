@@ -80,6 +80,8 @@ class DAQ_IO(object):
             lost_data = np.array(list(logs['lost'].values())).reshape(1,-1)
             lost = pd.DataFrame(data = lost_data,columns = list(logs['lost'].keys()))
             compress = pd.DataFrame(data = logs['compress'])
+            tstamp_event = pd.DataFrame(data = logs['tstamp_event'])
+            timestamp = pd.DataFrame(data=logs['timestamp'])
             # complevel and complib are not compatible with MATLAB
             store.put('MC',self.panel_array)
             store.put('sensors',self.sensors_array)
@@ -92,6 +94,8 @@ class DAQ_IO(object):
             store.put('out_time',log_out_time)
             store.put('lost',lost)
             store.put('compress',compress)
+            store.put('tstamp_event',tstamp_event)
+            store.put('timestamp',timestamp)
             store.close()
 
 
@@ -143,19 +147,19 @@ class hdf_compose(object):
         hf = hdf_access(self.path,self.file_name + str(self.files[0]) + ".h5")
         self.data_aux,self.sensors,self.events = hf.read()
         self.data = np.pad( self.data,
-                            ((self.events,0),(0,0)),
+                            ((0,self.events),(0,0)),
                             mode='constant',
                             constant_values=0)
-        self.data[0:self.events,:] = self.data_aux
+        self.data[-self.events:,:] = self.data_aux
 
         for i in self.files:
             hf = hdf_access(self.path,self.file_name + str(i) + ".h5")
             self.data_aux,self.fake,self.events = hf.read()
             self.data = np.pad( self.data,
-                                ((self.events,0),(0,0)),
+                                ((0,self.events),(0,0)),
                                 mode='constant',
                                 constant_values=0)
-            self.data[0:self.events,:] = self.data_aux
+            self.data[-self.events:,:] = self.data_aux
 
 
         return self.data, self.sensors, self.data.shape[0]
@@ -168,7 +172,7 @@ def main():
     files = [0,1,2,3,4,5,6,8]
 
     TEST_c = hdf_compose(  "/home/viherbos/DAQ_DATA/NEUTRINOS/RING/",
-                           "p_FRSET_",files,1536)
+                           "p_FRSET_", files, 1536)
     a,b,c = TEST_c.compose()
 
     time_elapsed = time.time() - start
