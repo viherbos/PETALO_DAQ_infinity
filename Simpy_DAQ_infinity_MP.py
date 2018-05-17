@@ -65,49 +65,15 @@ def L1_sch(SiPM_Matrix_Slice, sim_info):
 
 def DAQ_sim(sim_info):
     param = sim_info['Param']
-    # Work out number of SiPMs based on geometry data
-    n_sipms_I = param.P['TOPOLOGY']['sipm_int_row']*param.P['TOPOLOGY']['n_rows']
-    n_sipms_O = param.P['TOPOLOGY']['sipm_ext_row']*param.P['TOPOLOGY']['n_rows']
-    n_sipms     = n_sipms_I + n_sipms_O
-    # Number of ASICs calculation: Inner Face + Outer Face // full + partial
-    n_asics_I = int(math.ceil(float(n_sipms_I) / float(param.P['TOFPET']['n_channels'])))
-    n_asics_f_I  = n_sipms_I // param.P['TOFPET']['n_channels']  # Fully used
-    n_asics_p_I = n_asics_I - n_asics_f_I                       # Partially used
-    n_asics_O = int(math.ceil(float(n_sipms_O) / float(param.P['TOFPET']['n_channels'])))
-    n_asics_f_O  = n_sipms_O // param.P['TOFPET']['n_channels']
-    n_asics_p_O   = n_asics_O - n_asics_f_O      # Number of not fully used ASICs (0 or 1)
-    n_asics = n_asics_I + n_asics_O
-    # L1 are required with max number of ASICs in param.P['L1']['n_asics']
-    # // full + part
-    n_L1 = int(math.ceil(float(n_asics) / float(param.P['L1']['n_asics'])))
-    n_L1_f = n_asics // param.P['L1']['n_asics']
-    n_L1_p = n_L1 - n_L1_f
-
-    print ("Number of SiPM : %d \nNumber of ASICS : %d " % (n_sipms,n_asics))
-    print ("Number of L1 : %d " % (n_L1))
-
-    SiPM_Matrix_I = np.reshape(np.arange(0,n_sipms_I),
-                                (param.P['TOPOLOGY']['n_rows'],
-                                param.P['TOPOLOGY']['sipm_int_row']))
-    SiPM_Matrix_O = np.reshape(np.arange(n_sipms_I,n_sipms),
-                                (param.P['TOPOLOGY']['n_rows'],
-                                param.P['TOPOLOGY']['sipm_ext_row']))
-    # SiPM matrixs Inner face and Outer face
-
-    topology = {'n_sipms_I':n_sipms_I, 'n_sipms_O':n_sipms_O, 'n_sipms': n_sipms,
-            'n_asics_I':n_asics_I, 'n_asics_f_I':n_asics_f_I,'n_asics_p_I':n_asics_p_I,
-            'n_asics_O':n_asics_O, 'n_asics_f_O':n_asics_f_O,'n_asics_p_O':n_asics_p_O,
-            'n_asics':n_asics, 'n_L1':n_L1, 'n_L1_f':n_L1_f, 'n_L1_p':n_L1_p}
 
     # Generation of Iterable for pool.map
     # Mapping Function
     try:
         style = param.P['L1']['map_style']
-        L1_Slice = DAQ.SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style)
+        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = DAQ.SiPM_Mapping(param.P, style)
     except:
         # JSON file doesn't include mapping option
-        L1_Slice = DAQ.SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O,
-                                         topology, param, 'striped')
+        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = DAQ.SiPM_Mapping(param.P, 'striped')
 
     # Multiprocess Pool Management
     kargs = {'sim_info':sim_info}
@@ -126,7 +92,6 @@ def DAQ_sim(sim_info):
 
     elapsed_time = time.time()-start_time
     print ("SKYNET GAINED SELF-AWARENESS AFTER %d SECONDS" % elapsed_time)
-
 
 
     return pool_output,topology

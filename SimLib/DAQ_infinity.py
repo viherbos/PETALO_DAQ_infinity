@@ -8,6 +8,7 @@ import sys
 #import HF_translator as HFT
 import os
 import pandas as pd
+import math
 
 """ LIBRARY FOR INFINITY DAQ """
 
@@ -456,7 +457,42 @@ class L1(object):
         return output
 
 
-def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
+
+def SiPM_Mapping(param, style):
+
+    # Work out number of SiPMs based on geometry data
+    n_sipms_I = param['TOPOLOGY']['sipm_int_row']*param['TOPOLOGY']['n_rows']
+    n_sipms_O = param['TOPOLOGY']['sipm_ext_row']*param['TOPOLOGY']['n_rows']
+    n_sipms     = n_sipms_I + n_sipms_O
+    # Number of ASICs calculation: Inner Face + Outer Face // full + partial
+    n_asics_I = int(math.ceil(float(n_sipms_I) / float(param['TOFPET']['n_channels'])))
+    n_asics_f_I  = n_sipms_I // param['TOFPET']['n_channels']  # Fully used
+    n_asics_p_I = n_asics_I - n_asics_f_I                       # Partially used
+    n_asics_O = int(math.ceil(float(n_sipms_O) / float(param['TOFPET']['n_channels'])))
+    n_asics_f_O  = n_sipms_O // param['TOFPET']['n_channels']
+    n_asics_p_O   = n_asics_O - n_asics_f_O      # Number of not fully used ASICs (0 or 1)
+    n_asics = n_asics_I + n_asics_O
+    # L1 are required with max number of ASICs in param.P['L1']['n_asics']
+    # // full + part
+    n_L1 = int(math.ceil(float(n_asics) / float(param['L1']['n_asics'])))
+    n_L1_f = n_asics // param['L1']['n_asics']
+    n_L1_p = n_L1 - n_L1_f
+
+    print ("Number of SiPM : %d \nNumber of ASICS : %d " % (n_sipms,n_asics))
+    print ("Number of L1 : %d " % (n_L1))
+
+    SiPM_Matrix_I = np.reshape(np.arange(0,n_sipms_I),
+                                (param['TOPOLOGY']['n_rows'],
+                                param['TOPOLOGY']['sipm_int_row']))
+    SiPM_Matrix_O = np.reshape(np.arange(n_sipms_I,n_sipms),
+                                (param['TOPOLOGY']['n_rows'],
+                                param['TOPOLOGY']['sipm_ext_row']))
+    # SiPM matrixs Inner face and Outer face
+
+    topology = {'n_sipms_I':n_sipms_I, 'n_sipms_O':n_sipms_O, 'n_sipms': n_sipms,
+            'n_asics_I':n_asics_I, 'n_asics_f_I':n_asics_f_I,'n_asics_p_I':n_asics_p_I,
+            'n_asics_O':n_asics_O, 'n_asics_f_O':n_asics_f_O,'n_asics_p_O':n_asics_p_O,
+            'n_asics':n_asics, 'n_L1':n_L1, 'n_L1_f':n_L1_f, 'n_L1_p':n_L1_p}
 
     # if style == "striped":
     #     L1_Slice=[]
@@ -492,7 +528,7 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
         count = 0
 
         for i in range(topology['n_asics_I']):
-            if (count < param.P['L1']['n_asics']-2):
+            if (count < param['L1']['n_asics']-2):
                 SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_I[:,i*4:(i+1)*4],-1))
                 SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
                 count += 2
@@ -504,7 +540,7 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
                 count = 0
 
         for i in range(topology['n_asics_O']-topology['n_asics_I']):
-            if (count < param.P['L1']['n_asics']-1):
+            if (count < param['L1']['n_asics']-1):
                 SiPM_ASIC_Slice.append(np.reshape(SiPM_Matrix_O[:,i*4:(i+1)*4],-1))
                 count += 1
             else:
@@ -527,11 +563,11 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
         SiPM_Slice=[]
 
         # Generate Slice of ASICs (SiPM) for L1
-        for k in range(param.P['TOPOLOGY']['sipm_int_row']):
-            for j in range(param.P['TOPOLOGY']['n_rows']):
+        for k in range(param['TOPOLOGY']['sipm_int_row']):
+            for j in range(param['TOPOLOGY']['n_rows']):
                 SiPM_Slice.append(SiPM_Matrix_I[j,k])
                 count_ch += 1
-                if count_ch == param.P['TOFPET']['n_channels']:
+                if count_ch == param['TOFPET']['n_channels']:
                     ASIC_Slice.append(SiPM_Slice)
                     SiPM_Slice = []
                     count_ch = 0
@@ -540,11 +576,11 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
 
         count_ch = 0
         SiPM_Slice=[]
-        for k in range(param.P['TOPOLOGY']['sipm_ext_row']):
-            for j in range(param.P['TOPOLOGY']['n_rows']):
+        for k in range(param['TOPOLOGY']['sipm_ext_row']):
+            for j in range(param['TOPOLOGY']['n_rows']):
                 SiPM_Slice.append(SiPM_Matrix_O[j,k])
                 count_ch += 1
-                if count_ch == param.P['TOFPET']['n_channels']:
+                if count_ch == param['TOFPET']['n_channels']:
                     ASIC_Slice.append(SiPM_Slice)
                     SiPM_Slice = []
                     count_ch = 0
@@ -558,7 +594,7 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
         for i in range(len(ASIC_Slice)):
             L1_aux_Slice.append(ASIC_Slice[i])
             count_asic += 1
-            if count_asic == param.P['L1']['n_asics']:
+            if count_asic == param['L1']['n_asics']:
                 L1_Slice.append(L1_aux_Slice)
                 L1_aux_Slice = []
                 count_asic = 0
@@ -572,4 +608,4 @@ def SiPM_Mapping(SiPM_Matrix_I, SiPM_Matrix_O, topology, param, style):
         print ("L1 number %d has %d ASICs" % (i,len(L1_Slice[i])))
 
 
-    return L1_Slice
+    return L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology
