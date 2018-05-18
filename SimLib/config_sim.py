@@ -49,9 +49,9 @@ class SIM_DATA(object):
                                         'FIFO_L1a_depth':1024,
                                         'FIFO_L1b_depth':256,
                                         'buffer_size'   :800,
-                                        'n_asics'       :16,
+                                        'n_asics'       :12,
                                         'TE'            :5,
-                                        'map_style'     :'striped_2'}
+                                        'map_style'     :'striped'}
                        }
 
     def config_write(self):
@@ -75,7 +75,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "test_CHECK" #"infinity_4mm_16_2_5_buf800_M"
+    filename = "test_1" #"infinity_4mm_16_2_5_buf800_M"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/"+filename+".json",
                  read = False)
     SIM.config_write()
