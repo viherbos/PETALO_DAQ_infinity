@@ -478,6 +478,15 @@ def SiPM_Mapping(param, style):
     n_L1_f = n_asics // param['L1']['n_asics']
     n_L1_p = n_L1 - n_L1_f
 
+    n_L1_I = int(math.ceil(float(n_asics_I) / float(param['L1']['n_asics'])))
+    n_L1_I_f = n_asics_I // param['L1']['n_asics']
+    n_L1_I_p = n_L1_I - n_L1_I_f
+
+    n_L1_O = int(math.ceil(float(n_asics_O) / float(param['L1']['n_asics'])))
+    n_L1_O_f = n_asics_O // param['L1']['n_asics']
+    n_L1_O_p = n_L1_O - n_L1_O_f
+
+
     print ("Number of SiPM : %d \nNumber of ASICS : %d " % (n_sipms,n_asics))
     print ("Number of L1 : %d " % (n_L1))
 
@@ -611,6 +620,7 @@ def SiPM_Mapping(param, style):
         count_L1   = 0
         ASIC_Slice=[]
         SiPM_Slice=[]
+        extra = 0
 
         # Generate Slice of ASICs (SiPM) for L1
         for k in range(param['TOPOLOGY']['sipm_int_row']):
@@ -637,22 +647,62 @@ def SiPM_Mapping(param, style):
         if (count_ch > 0):
             ASIC_Slice.append(SiPM_Slice)
 
-        # Number of ASICs
-        print ("CHECK Number of ASICS = %d" % (len(ASIC_Slice)))
 
+        # L1 ASIGNMENT
+        L1_I_nasics = n_asics_I // n_L1_I
+        L1_O_nasics = n_asics_O // n_L1_O
 
-        for i in ASIC_Slice:
-            L1_aux_Slice.append(i)
+        extra = n_asics_I - L1_I_nasics * n_L1_I
+        if extra > 0:
+            inc = 1
+        else:
+            inc = 0
+
+        for i in range(n_asics_I):
+            L1_aux_Slice.append(ASIC_Slice[i])
             count_asic += 1
-            if count_asic == param['L1']['n_asics']:
+            if (count_asic == L1_I_nasics + inc):
                 L1_Slice.append(L1_aux_Slice)
                 L1_aux_Slice = []
                 count_asic = 0
+                if extra > 1 :
+                    extra = extra - 1
+                else:
+                    inc = 0
         if count_asic > 0:
             L1_Slice.append(L1_aux_Slice)
 
 
 
+        count_asic = 0
+        L1_aux_Slice = []
+        extra = n_asics_O - L1_O_nasics * n_L1_O
+        if extra > 0:
+            inc = 1
+        else:
+            inc = 0
+            
+        for i in range(n_asics_I,n_asics):
+            L1_aux_Slice.append(ASIC_Slice[i])
+            count_asic += 1
+            if (count_asic == (L1_O_nasics + inc)):
+                L1_Slice.append(L1_aux_Slice)
+                L1_aux_Slice = []
+                count_asic = 0
+                if extra > 1 :
+                    extra = extra - 1
+                else:
+                    inc = 0
+        if count_asic > 0:
+            L1_Slice.append(L1_aux_Slice)
+
+        # for i in range(len(L1_aux_Slice)):
+        #     L1_Slice[len(L1_Slice)-1].append(L1_aux_Slice[i])
+
+
+
+    # Number of ASICs
+    print ("CHECK Number of ASICS = %d" % (len(ASIC_Slice)))
     print ("Number of Instanciated L1 = %d" % (len(L1_Slice)))
     for i in range(len(L1_Slice)):
         print ("L1 number %d has %d ASICs" % (i,len(L1_Slice[i])))
