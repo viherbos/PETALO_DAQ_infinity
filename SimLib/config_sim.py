@@ -44,14 +44,16 @@ class SIM_DATA(object):
                                         'TE':2,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :600E6,
-                                        'frame_process' :3E6,
+                        'L1'          :{'L1_outrate'    :450E6,
+                                        'frame_process' :1.5E6,
                                         'FIFO_L1a_depth':2048,
                                         'FIFO_L1b_depth':512,
                                         'buffer_size'   :1024,
                                         'n_asics'       :16,
-                                        'TE'            :4,
-                                        'map_style'     :'striped'}
+                                        'TE'            :5,
+                                        'map_style'     :'mixed_2',
+                                        'L1_mapping_I'  :[10,10,10,10],
+                                        'L1_mapping_O'  :[13,13,12,13]}
                        }
 
     def config_write(self):
@@ -75,7 +77,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "case1"
+    filename = "infinity_test"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/"+filename+".json",
                  read = False)
     SIM.config_write()
