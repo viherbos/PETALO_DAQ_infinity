@@ -261,8 +261,12 @@ if __name__ == '__main__':
 
     Param = DAQ.parameters(CG,sensors,n_events)
 
-    timing = np.random.randint(0,int(1E9/Param.P['ENVIRONMENT']['ch_rate']),
-                                 size=n_events)
+    # timing = np.random.randint(0,int(1E9/Param.P['ENVIRONMENT']['ch_rate']),
+    #                              size=n_events)
+
+    # In Christoph we trust
+    timing = np.random.poisson(1E9/Param.P['ENVIRONMENT']['ch_rate'],n_events).astype(int)
+
 
     # All sensors are given the same timestamp in an events
     sim_info = {'DATA': DATA, 'timing': timing, 'Param': Param }
