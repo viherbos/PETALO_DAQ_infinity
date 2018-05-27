@@ -396,7 +396,7 @@ if __name__ == '__main__':
 
     fit(out['compress'],int(np.max(out['compress'])))
     fit.plot(axis = fig.add_subplot(244),
-            title = "Data Frame Lenght (Compression)",
+            title = "Data Frame Length (Compression)",
             xlabel = "Number of QDC fields",
             ylabel = "Hits",
             res = False,
