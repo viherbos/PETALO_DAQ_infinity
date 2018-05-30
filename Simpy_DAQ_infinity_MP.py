@@ -404,7 +404,7 @@ if __name__ == '__main__':
 
     # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
     A = np.arange(0,int(np.max(out['compress'])),1)
-    D_data = A * 26 + + 8 + 10 + 8     #see DAQ_infinity
+    D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
     D_save = (A-1)*10
     B_data = np.multiply(D_data,fit.hist)
     B_save = np.multiply(D_save,fit.hist)

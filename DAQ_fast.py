@@ -8,6 +8,22 @@ from SimLib import config_sim as CFG
 from SimLib import DAQ_infinity as DAQ
 
 
+""" HIGH LEVEL MODEL OF DAQ
+    Output file is a HF5 based pandas structure with the following fields:
+    MC           : Table with QDC > TE2 > TE1 (photons) event -> row // sipm -> column
+    MC_tof       : Table with TDC (QDC > TE2 > TE1)     event -> row // sipm -> column
+    iter1        : First iteration point for both gamma. Last 2 columns show closest SiPM
+    subth_QDC_L1 : Accumulation of TE1 < QDC < TE2 per L1
+    subth_TDC_L1 : Lowest TDC for channel with TE1 < QDC < TE2 per L1
+
+    Configuration Parameters (JSON file):
+    'MC_file_name':"full_ring_depth3cm_pitch4mm"
+    'MC_out_file_name':"daq_output_IDEAL"
+    'time_bin': 5
+    'n_files' : 5
+"""
+
+
 class DAQ_MODEL(object):
     def __init__(self,path,jsonfilename,file_number):
         self.SIM_CONT = CFG.SIM_DATA(filename=path+jsonfilename+".json",read=True)
@@ -89,9 +105,11 @@ class DAQ_MODEL(object):
                                                 columns=['sensor','x','y','z'])
 
             iter1_array = pd.DataFrame( data=np.concatenate((self.gamma1_i1,
-                                                                  self.gamma2_i1),
-                                                                  axis=1),
-                                             columns=['x1','y1','z1','x2','y2','z2'])
+                                                             self.gamma2_i1,
+                                                             self.sipm_iter1A,
+                                                             self.sipm_iter1B),
+                                                             axis=1),
+                                        columns=['x1','y1','z1','x2','y2','z2','SiPMA','SiPMB'])
             store.put('iter1',iter1_array)
             store.put('MC',panel_array)
             store.put('MC_tof',tof_array)
@@ -155,6 +173,8 @@ class DAQ_MODEL(object):
     def process_table(self):
         self.gamma1_i1 = np.zeros((self.n_events,3),dtype='float32')
         self.gamma2_i1 = np.zeros((self.n_events,3),dtype='float32')
+        self.sipm_iter1A = np.zeros((self.n_events,1),dtype='int32')
+        self.sipm_iter1B = np.zeros((self.n_events,1),dtype='int32')
         low_limit = 0
         count = 0
         count_a = 0
@@ -185,8 +205,19 @@ class DAQ_MODEL(object):
                 A2_index = A2[:]['initial_vertex'][:,3].argmin()
                 self.gamma2_i1[i,:] = A2[A2_index]['initial_vertex'][0:3]
 
-
             low_limit = high_limit+1
+
+            # Sensors close to first interaction
+            if (self.gamma1_i1[i,:].all() == 0):
+                self.sipm_iter1A[i,0] = 0
+            else:
+                self.sipm_iter1A[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma1_i1[i,:]),axis=1))) + 1000
+
+            if (self.gamma2_i1[i,:].all() == 0):
+                self.sipm_iter1B[i,0] = 0
+            else:
+                self.sipm_iter1B[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma2_i1[i,:]),axis=1))) + 1000
+
 
 
 def DAQ_out(file_number,path,jsonfilename):
@@ -200,22 +231,22 @@ def DAQ_out(file_number,path,jsonfilename):
 
 
 
-
 if __name__ == "__main__":
 
     kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
              'jsonfilename' :"infinity_striped_2"}
+    SIM_JSON = CFG.SIM_DATA(filename=kargs['path']+kargs['jsonfilename']+".json",read=True)
 
     TRANS_map = partial(DAQ_out, **kargs)
-
     # Multiprocess Work
     pool_size = mp.cpu_count()
     pool = mp.Pool(processes=pool_size)
 
-    pool.map(TRANS_map, [i for i in range(0,1)])
-
     # Range of Files to Translate
+    pool.map(TRANS_map, [i for i in range(0,SIM_JSON.data['ENVIRONMENT']['n_files'])])
+
 
     pool.close()
     pool.join()
+
     #DAQ_out(0,**kargs)

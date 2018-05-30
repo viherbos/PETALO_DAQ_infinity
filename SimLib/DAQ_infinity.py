@@ -64,9 +64,13 @@ class ch_frame(object):
 class L1_outframe(object):
 
     def __init__(self,data,event,asic_id,in_time,out_time):
-        self.data = data
         # Lenght of data is not constant, depends on the number of channels being sent
-        # DATA fiels: n_CH | TDC | SENSOR1 | QDC1 | SENSOR2 | QDC2 | ... | B_QDC
+        ########################################################################
+        # DATAFRAME FIELDS
+        # FRAME TYPE  | n_CH | TDCmin | n_CH * [CH | QDC] | Subthr sum(QDC)
+        #     1b      |  7b  |  26b   | n_CH * (13b+10b)  | 10 bits B_QDC
+        ########################################################################
+        self.data = data
         self.event = event
         self.asic_id = asic_id
         self.in_time = in_time
@@ -87,6 +91,20 @@ class L1_outframe(object):
     def __repr__(self):
         return "data: {}, event: {}, asic_id: {} in_time:{} out_time:{}".\
             format(self.data,self.event,self.asic_id,self.in_time,self.out_time)
+
+
+def L1_outframe_nbits(data, frame_type=1, n_CH=7,
+                            TDCmin=26, CH=13, QDC=10, Subthr_sum=10):
+    ########################################################################
+    # DATAFRAME FIELDS
+    # FRAME TYPE  | n_CH | TDCmin | n_CH * [CH | QDC] | Subthr sum(QDC)
+    #     1b      |  7b  |  26b   | n_CH * (13b+10b)  | 10 bits B_QDC
+    ########################################################################
+    if data[0]>0:
+        c=1
+    else:
+        c=0
+    return (frame_type + c*n_CH + TDCmin + data[0]*(CH+QDC) + Subthr_sum)
 
 
 
@@ -440,9 +458,11 @@ class L1(object):
     def runB(self):
         while True:
             msg = yield self.fifoB.get()
-        # 8 bits n_CH | 10 bits TDC | n_CH * (16 bits + 10 bits) | 8 bits B_QDC
-            # When no active channels -> send a sensor in the center of ASIC
-            delay = float((msg['data'][0]*26 + 8 + 10 + 8))*(1.0E9/self.param.P['L1']['L1_outrate'])
+
+            # !!!!!!!!!!
+            n_bits_in_frame = L1_outframe_nbits(msg['data'])
+
+            delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
             yield self.env.timeout(int(delay))
             msg['out_time'] = self.env.now
             self.out_stream.append(msg)

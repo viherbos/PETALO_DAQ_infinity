@@ -46,12 +46,20 @@ class DAQ_IO(object):
             store.put('sensors',sensors_array)
             store.close()
 
+    # def read(self):
+    #     os.chdir(self.path)
+    #     data = np.array(pd.read_hdf(self.out_filename,key='MC'), dtype='int32')
+    #     sensors = np.array(np.array(pd.read_hdf(self.out_filename,key='sensors'),
+    #               dtype='int32'))
+    #     return data,sensors
+
     def read(self):
-        os.chdir(self.path)
-        data = np.array(pd.read_hdf(self.out_filename,key='MC'), dtype='int32')
-        sensors = np.array(np.array(pd.read_hdf(self.out_filename,key='sensors'),
-                  dtype='int32'))
+        data = np.array(pd.read_hdf(self.path+self.out_filename,
+                                    key='MC'), dtype='int32')
+        sensors = np.array(np.array(pd.read_hdf(self.path+self.out_filename,
+                                    key='sensors'),dtype='int32'))
         return data,sensors
+
 
     def write_out(self,data,topology={},logs={}):
         os.chdir(self.path)
@@ -122,6 +130,13 @@ class hdf_access(object):
         #returns data array, sensors vector, and number of events
         return self.data,self.sensors,self.events
 
+    def read_DAQ_fast(self):
+        file_name = self.path+self.file_name
+        with pd.HDFStore(file_name) as hdf:
+            out={}
+            for i in hdf.keys():
+                out[i] = pd.read_hdf(file_name,key=i)
+        return out
 
 class hdf_compose(object):
     """ A utility class to access preprocessed data from MCs in hf5 format.

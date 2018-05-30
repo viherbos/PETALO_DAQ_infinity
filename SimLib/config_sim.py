@@ -19,7 +19,7 @@ class SIM_DATA(object):
         else:
             # These are default values.
             # L1 output data frame = QDC[10] + TDC[10] + SiPM[20] = 40 bits
-            self.data= {'ENVIRONMENT'  :{'ch_rate'     :7000E3,
+            self.data= {'ENVIRONMENT'  :{'ch_rate'     :10E6,
                                         'temperature' :300,
                                         'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
                                         'file_name': "p_FR_infinity_4mm_",
@@ -39,21 +39,21 @@ class SIM_DATA(object):
                                         'n_rows'      :16},
 
                         'TOFPET'      :{'n_channels'  :64,
-                                        'outlink_rate': (2.6E9/80)/2.0,
+                                        'outlink_rate': (2.6E9/80)/1.0,
                                         # 80 bits per TOFPET output frame
                                         'IN_FIFO_depth':4,
                                         'OUT_FIFO_depth':64*4,
                                         'MAX_WILKINSON_LATENCY':5120,
-                                        'TE':2,
+                                        'TE':3,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :500E6,
+                        'L1'          :{'L1_outrate'    :550E6,
                                         'frame_process' :3E6,
                                         'FIFO_L1a_depth':4096,
-                                        'FIFO_L1b_depth':1024,
-                                        'buffer_size'   :1024,
+                                        'FIFO_L1b_depth':128,
+                                        'buffer_size'   :512,
                                         'n_asics'       :16,
-                                        'TE'            :7,
+                                        'TE'            :9,
                                         'map_style'     :'striped_2',
                                         'L1_mapping_I'  :[8,8,8,8,8],
                                         'L1_mapping_O'  :[7,7,8,7,7,7,8]}
@@ -85,7 +85,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "infinity_striped_2"
+    filename = "extreme_10M_1"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/"+filename+".json",
                  read = False)
     SIM.config_write()
