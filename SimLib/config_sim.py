@@ -47,13 +47,13 @@ class SIM_DATA(object):
                                         'TE':3,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :550E6,
+                        'L1'          :{'L1_outrate'    :600E6,
                                         'frame_process' :3E6,
                                         'FIFO_L1a_depth':4096,
                                         'FIFO_L1b_depth':128,
                                         'buffer_size'   :512,
                                         'n_asics'       :16,
-                                        'TE'            :9,
+                                        'TE'            :8,
                                         'map_style'     :'striped_2',
                                         'L1_mapping_I'  :[8,8,8,8,8],
                                         'L1_mapping_O'  :[7,7,8,7,7,7,8]}
@@ -63,6 +63,9 @@ class SIM_DATA(object):
 # 'L1_mapping_O'  :[10,10,11,10,10]}
 # 'L1_mapping_I'  :[5,5,5,5,5,5,5,5],
 # 'L1_mapping_O'  :[6,7,6,7,6,6,7,6]}
+
+# 'L1_mapping_I'  :[8,8,8,8,8],
+# 'L1_mapping_O'  :[7,7,8,7,7,7,8]}
 
     def config_write(self):
         writeName = self.filename
@@ -85,7 +88,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "extreme_10M_1"
+    filename = "Extreme_2"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/"+filename+".json",
                  read = False)
     SIM.config_write()

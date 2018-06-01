@@ -5,8 +5,8 @@ import numpy as np
 import multiprocessing as mp
 from functools import partial
 from SimLib import config_sim as CFG
-from SimLib import DAQ_infinity as DAQ
-
+#from SimLib import DAQ_infinity as DAQ
+from SimLib import sipm_mapping as DAQ
 
 """ HIGH LEVEL MODEL OF DAQ
     Output file is a HF5 based pandas structure with the following fields:
