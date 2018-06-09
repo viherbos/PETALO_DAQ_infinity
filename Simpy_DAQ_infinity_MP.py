@@ -13,6 +13,7 @@ import multiprocessing as mp
 from functools import partial
 from SimLib import DAQ_infinity as DAQ
 from SimLib import HF_files as HF
+from SimLib import sipm_mapping as MAP
 import time
 from SimLib import config_sim as CFG
 #from SimLib import pet_graphics as PG
@@ -70,10 +71,10 @@ def DAQ_sim(sim_info):
     # Mapping Function
     try:
         style = param.P['L1']['map_style']
-        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = DAQ.SiPM_Mapping(param.P, style)
+        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = MAP.SiPM_Mapping(param.P, style)
     except:
         # JSON file doesn't include mapping option
-        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = DAQ.SiPM_Mapping(param.P, 'striped')
+        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = MAP.SiPM_Mapping(param.P, 'striped')
 
     # Multiprocess Pool Management
     kargs = {'sim_info':sim_info}
@@ -280,8 +281,13 @@ if __name__ == '__main__':
         SIM_OUT['L1_out'].append(pool_out[i]['L1_out'])
         for j in range(len(pool_out[i]['ASICS_out'])):
             SIM_OUT['ASICS_out'].append(pool_out[i]['ASICS_out'][j])
+
     # Data Output recovery
-    out = DAQ_OUTPUT_processing(SIM_OUT,topology['n_L1'],topology['n_asics'])
+    n_L1    = np.array(CG['L1']['L1_mapping_O']).shape[0]
+    n_asics = np.sum(np.array(CG['L1']['L1_mapping_O']))
+    #topology['n_L1'],topology['n_asics'])
+
+    out = DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics)
 
     #//////////////////////////////////////////////////////////////////
     #///                     DATA ANALYSIS AND GRAPHS               ///

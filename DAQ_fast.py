@@ -234,19 +234,19 @@ def DAQ_out(file_number,path,jsonfilename):
 if __name__ == "__main__":
 
     kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
-             'jsonfilename' :"infinity_striped_2"}
+             'jsonfilename' :"OF_4mm_min"}
     SIM_JSON = CFG.SIM_DATA(filename=kargs['path']+kargs['jsonfilename']+".json",read=True)
 
     TRANS_map = partial(DAQ_out, **kargs)
     # Multiprocess Work
-    pool_size = mp.cpu_count()
-    pool = mp.Pool(processes=pool_size)
+    # pool_size = mp.cpu_count() // 2
+    # pool = mp.Pool(processes=pool_size)
 
     # Range of Files to Translate
-    pool.map(TRANS_map, [i for i in range(0,SIM_JSON.data['ENVIRONMENT']['n_files'])])
+    # pool.map(TRANS_map, [i for i in range(0,SIM_JSON.data['ENVIRONMENT']['n_files'])])
 
 
-    pool.close()
-    pool.join()
+    # pool.close()
+    # pool.join()
 
-    #DAQ_out(0,**kargs)
+    DAQ_out(0,**kargs)
