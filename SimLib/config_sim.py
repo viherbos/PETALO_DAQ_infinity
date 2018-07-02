@@ -19,7 +19,7 @@ class SIM_DATA(object):
         else:
             # These are default values.
             # L1 output data frame = QDC[10] + TDC[10] + SiPM[20] = 40 bits
-            self.data= {'ENVIRONMENT'  :{'ch_rate'     :5E6,
+            self.data= {'ENVIRONMENT'  :{'ch_rate'     :10E6,
                                         'temperature' :300,
                                         'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
                                         'file_name': "p_FR_infinity_4mm_",
@@ -28,7 +28,7 @@ class SIM_DATA(object):
                                         'MC_out_file_name':"daq_output_TEST",
                                         'time_bin': 5,
                                         'n_files' : 2,
-                                        'n_events': 10000},
+                                        'n_events': 30000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
@@ -47,7 +47,7 @@ class SIM_DATA(object):
                                         'TE':2,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :800E6,
+                        'L1'          :{'L1_outrate'    :1000E6,
                                         'frame_process' :3E6,
                                         'FIFO_L1a_depth':4096,
                                         'FIFO_L1b_depth':128,
@@ -56,7 +56,7 @@ class SIM_DATA(object):
                                         'TE'            :4,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
-                                        'L1_mapping_O'  :[7,7,8,7,7,7,8]}
+                                        'L1_mapping_O'  :[6,6,5,6,6,5,6,6,5]}
                        }
 
 # 'L1_mapping_I'  :[10,10,10,10],
