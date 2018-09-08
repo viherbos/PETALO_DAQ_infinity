@@ -141,7 +141,7 @@ class DAQ_MODEL(object):
             for j in self.sensors:
                 condition   = (event_wave[:,0] == j)
                 condition_tof = (event_tof[:,0] == -j)
-                L1_index = self.sipmtoL1[j-1000]
+                L1_index = self.sipmtoL1[j-self.sensors[0]]
                 # Paola's style
 
                 sensor_data = np.sum(event_wave[condition,2])
@@ -233,7 +233,7 @@ def DAQ_out(file_number,path,jsonfilename):
 
 if __name__ == "__main__":
 
-    kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
+    kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/",
              'jsonfilename' :"OF_4mm_min"}
     SIM_JSON = CFG.SIM_DATA(filename=kargs['path']+kargs['jsonfilename']+".json",read=True)
 
