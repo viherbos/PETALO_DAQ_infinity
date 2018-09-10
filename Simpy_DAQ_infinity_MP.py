@@ -99,7 +99,7 @@ def DAQ_sim(sim_info):
 
 
 
-def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
+def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
     data, in_time, out_time, lostL1a, lostL1b = [],[],[],[],[]
     lost_producers= np.array([]).reshape(0,1)
     lost_channels = np.array([]).reshape(0,1)
@@ -167,7 +167,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics):
         for j in range(int(n_TDC[event])):
             for l in range(int(A[A_index][0])):
                 #Number od data in Dataframe
-                data[event,int(A[A_index][2*l+2])-1000] = A[A_index][2*l+3]
+                data[event,int(A[A_index][2*l+2])-first_SiPM] = A[A_index][2*l+3]
 
             A_index += 1
 
@@ -247,6 +247,7 @@ if __name__ == '__main__':
                         range(n_files),n_sipms)
     DATA,sensors,n_events = A.compose()
 
+
     # Number of events for simulation
     n_events = CG['ENVIRONMENT']['n_events']
     DATA = DATA[0:n_events,:]
@@ -287,7 +288,7 @@ if __name__ == '__main__':
     n_asics = np.sum(np.array(CG['L1']['L1_mapping_O']))
     #topology['n_L1'],topology['n_asics'])
 
-    out = DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics)
+    out = DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,sensors[0])
 
     #//////////////////////////////////////////////////////////////////
     #///                     DATA ANALYSIS AND GRAPHS               ///
