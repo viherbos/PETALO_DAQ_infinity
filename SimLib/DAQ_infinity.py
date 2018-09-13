@@ -361,8 +361,9 @@ class L1(object):
         self.logA = np.array([]).reshape(0,2)
         self.logB = np.array([]).reshape(0,2)
 
-    def print_statsA(self):
-        self.logA=np.vstack([self.logA,[len(self.fifoA.items),self.env.now]])
+    def print_statsA(self,in_time=0):
+        self.logA=np.vstack([self.logA,[len(self.fifoA.items),in_time]])
+        #self.env.now]])
         # FIFO Statistics
     def print_statsB(self):
         self.logB=np.vstack([self.logB,[len(self.fifoB.items),self.env.now]])
@@ -412,7 +413,7 @@ class L1(object):
         try:
             if (len(self.fifoA.items)<(self.param.P['L1']['FIFO_L1a_depth'])):
                 self.fifoA.put(data)
-                self.print_statsA()
+                self.print_statsA(self.env.now-data[4]) #Latency (in_time)
                 return lost
             else:
                 raise Full('L1 FIFO A is FULL')

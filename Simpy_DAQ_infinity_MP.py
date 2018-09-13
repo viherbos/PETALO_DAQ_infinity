@@ -294,7 +294,8 @@ if __name__ == '__main__':
     #///                     DATA ANALYSIS AND GRAPHS               ///
     #//////////////////////////////////////////////////////////////////
 
-    latency = np.array(out['L1']['out_time'])-np.array(out['L1']['in_time'])
+    latency = np.array(out['L1']['logA'][:,1])
+    #np.array(out['L1']['out_time'])-np.array(out['L1']['in_time'])
 
     print ("LOST DATA PRODUCER -> CH      = %d" % (out['ASICS']['lost_producers'].sum()))
     print ("LOST DATA CHANNELS -> OUTLINK = %d" % (out['ASICS']['lost_channels'].sum()))

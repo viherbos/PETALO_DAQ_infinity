@@ -19,27 +19,27 @@ class SIM_DATA(object):
         else:
             # These are default values.
             # L1 output data frame = QDC[10] + TDC[10] + SiPM[20] = 40 bits
-            self.data= {'ENVIRONMENT'  :{'ch_rate'     :10E6,
+            self.data= {'ENVIRONMENT'  :{'ch_rate'     :7.1E6,
                                         'temperature' :300,
-                                        'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/",
-                                        'file_name': "p_FR_infinity_4mm_",
-                                        'MC_file_name':"full_ring_depth3cm_pitch4mm",
-                                        'out_file_name':"daq_output_TEST",
-                                        'MC_out_file_name':"daq_output_TEST",
+                                        'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/",
+                                        'file_name': "p_FR_oneface_",
+                                        'MC_file_name':"full_ring_iradius15cm_depth3cm_pitch4mm_one_face",
+                                        'out_file_name':"DAQ_OUT_oneface",
+                                        'MC_out_file_name':"DAQ_OUT_oneface",
                                         'time_bin': 5,
-                                        'n_files' : 2,
+                                        'n_files' : 12,
                                         'n_events': 30000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
-                        'TOPOLOGY'    :{'radius_int'   :994,
-                                        'radius_ext'   :1294,
-                                        'sipm_int_row':157,
-                                        'sipm_ext_row':204,
+                        'TOPOLOGY'    :{'radius_int'   :150,
+                                        'radius_ext'   :180,
+                                        'sipm_int_row':0,
+                                        'sipm_ext_row':282,
                                         'n_rows'      :16},
 
                         'TOFPET'      :{'n_channels'  :64,
-                                        'outlink_rate': (2.6E9/80)/1.0,
+                                        'outlink_rate': (2.6E9/80)/2.0,
                                         # 80 bits per TOFPET output frame
                                         'IN_FIFO_depth':4,
                                         'OUT_FIFO_depth':64*4,
@@ -47,16 +47,17 @@ class SIM_DATA(object):
                                         'TE':2,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :1000E6,
-                                        'frame_process' :3E6,
-                                        'FIFO_L1a_depth':4096,
+                        'L1'          :{'L1_outrate'    :700E6,
+                                        'frame_process' :1.5E6,
+                                        'FIFO_L1a_depth':8192,
                                         'FIFO_L1b_depth':128,
-                                        'buffer_size'   :512,
-                                        'n_asics'       :16,
+                                        'buffer_size'   :2048,
+                                        'n_asics'       :9,
                                         'TE'            :4,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
-                                        'L1_mapping_O'  :[6,6,5,6,6,5,6,6,5]}
+                                        'L1_mapping_O'  :[8,8,8,8,8,8,8,8,7]
+                                        }
                        }
 
 # 'L1_mapping_I'  :[10,10,10,10],
@@ -89,6 +90,6 @@ class SIM_DATA(object):
 if __name__ == '__main__':
 
     filename = "OF_4mm_min"
-    SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/LESS_4mm/"+filename+".json",
+    SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()
