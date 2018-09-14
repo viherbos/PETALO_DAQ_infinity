@@ -263,8 +263,6 @@ if __name__ == '__main__':
 
     Param = DAQ.parameters(CG,sensors,n_events)
 
-    # timing = np.random.randint(0,int(1E9/Param.P['ENVIRONMENT']['ch_rate']),
-    #                              size=n_events)
 
     # In Christoph we trust
     timing = np.random.poisson(1E9/Param.P['ENVIRONMENT']['ch_rate'],n_events).astype(int)
@@ -290,154 +288,6 @@ if __name__ == '__main__':
 
     out = DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,sensors[0])
 
-    #//////////////////////////////////////////////////////////////////
-    #///                     DATA ANALYSIS AND GRAPHS               ///
-    #//////////////////////////////////////////////////////////////////
-
-    latency = np.array(out['L1']['logA'][:,1])
-    #np.array(out['L1']['out_time'])-np.array(out['L1']['in_time'])
-
-    print ("LOST DATA PRODUCER -> CH      = %d" % (out['ASICS']['lost_producers'].sum()))
-    print ("LOST DATA CHANNELS -> OUTLINK = %d" % (out['ASICS']['lost_channels'].sum()))
-    print ("LOST DATA OUTLINK  -> L1      = %d" % (out['ASICS']['lost_outlink'].sum()))
-    print ("LOST DATA L1A -> L1B          = %d" % (np.array(out['L1']['lostL1b']).sum()))
-
-    WC_CH_FIFO    = float(max(out['ASICS']['log_channels'][:,0])/CG['TOFPET']['IN_FIFO_depth'])*100
-    WC_OLINK_FIFO = float(max(out['ASICS']['log_outlink'][:,0])/CG['TOFPET']['OUT_FIFO_depth'])*100
-    WC_L1_A_FIFO  = float(max(out['L1']['logA'][:,0])/CG['L1']['FIFO_L1a_depth'])*100
-    WC_L1_B_FIFO  = float(max(out['L1']['logB'][:,0])/CG['L1']['FIFO_L1b_depth'])*100
-
-
-    print ("\n \n BYE \n \n")
-
-    fit = fit_library.gauss_fit()
-    fig = plt.figure(figsize=(20,8))
-
-    fit(out['ASICS']['log_channels'][:,0],CG['TOFPET']['IN_FIFO_depth'])
-    fit.plot(axis = fig.add_subplot(241),
-            title = "ASICS Channel Input analog FIFO (4)",
-            xlabel = "FIFO Occupancy",
-            ylabel = "Hits",
-            res = False, fit = False)
-    fig.add_subplot(241).set_yscale('log')
-    fig.add_subplot(241).text(0.99,0.97,(("ASIC Input FIFO reached %.1f %%" % \
-                                            (WC_CH_FIFO))),
-                                            fontsize=8,
-                                            verticalalignment='top',
-                                            horizontalalignment='right',
-                                            transform=fig.add_subplot(241).transAxes)
-
-    fit(out['ASICS']['log_outlink'][:,0],CG['TOFPET']['OUT_FIFO_depth'])
-    fit.plot(axis = fig.add_subplot(242),
-            title = "ASICS Channels -> Outlink",
-            xlabel = "FIFO Occupancy",
-            ylabel = "Hits",
-            res = False, fit = False)
-    fig.add_subplot(242).set_yscale('log')
-    fig.add_subplot(242).text(0.99,0.97,(("ASIC Outlink FIFO reached %.1f %%" % \
-                                            (WC_OLINK_FIFO))),
-                                            fontsize=8,
-                                            verticalalignment='top',
-                                            horizontalalignment='right',
-                                            transform=fig.add_subplot(242).transAxes)
-
-    fit(out['L1']['logA'][:,0],CG['L1']['FIFO_L1a_depth'])
-    fit.plot(axis = fig.add_subplot(246),
-            title = "ASICS -> L1A (FIFOA)",
-            xlabel = "FIFO Occupancy",
-            ylabel = "Hits",
-            res = False, fit = False)
-    fig.add_subplot(246).set_yscale('log')
-    fig.add_subplot(246).text(0.99,0.97,(("L1_A FIFO reached %.1f %%" % \
-                                            (WC_L1_A_FIFO))),
-                                            fontsize=8,
-                                            verticalalignment='top',
-                                            horizontalalignment='right',
-                                            transform=fig.add_subplot(246).transAxes)
-
-    fit(out['L1']['logB'][:,0],CG['L1']['FIFO_L1b_depth'])
-    fit.plot(axis = fig.add_subplot(245),
-            title = "L1 OUTPUT (FIFOB)",
-            xlabel = "FIFO Occupancy",
-            ylabel = "Hits",
-            res = False, fit = False)
-    fig.add_subplot(245).set_yscale('log')
-    fig.add_subplot(245).text(0.99,0.97,(("L1_B FIFO reached %.1f %%" % \
-                                            (WC_L1_B_FIFO))),
-                                            fontsize=8,
-                                            verticalalignment='top',
-                                            horizontalalignment='right',
-                                            transform=fig.add_subplot(245).transAxes)
-    fit(latency,50)
-    fit.plot(axis = fig.add_subplot(243),
-            title = "Data Latency",
-            xlabel = "Latency in nanoseconds",
-            ylabel = "Hits",
-            res = False)
-    fig.add_subplot(243).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
-                                            (max(latency)))),
-                                            fontsize=7,
-                                            verticalalignment='top',
-                                            horizontalalignment='right',
-                                            transform=fig.add_subplot(243).transAxes)
-    new_axis = fig.add_subplot(247)
-    x_data = fit.bin_centers
-    y_data = np.add.accumulate(fit.hist_fit)/np.max(np.add.accumulate(fit.hist_fit))
-    new_axis.plot(x_data,y_data)
-    new_axis.set_ylim((0.9,1.0))
-    new_axis.set_xlabel("Latency in nanoseconds")
-    new_axis.set_ylabel("Percentage of Recovered Data")
-    new_axis.text(0.05,0.9,(("LOST DATA PRODUCER -> CH           = %d\n" + \
-                             "LOST DATA CHANNELS -> OUTLINK  = %d\n" + \
-                             "LOST DATA OUTLINK -> L1                = %d\n" + \
-                             "LOST DATA L1A -> L1B                      = %d\n") % \
-                            (out['ASICS']['lost_producers'].sum(),
-                             out['ASICS']['lost_channels'].sum(),
-                             out['ASICS']['lost_outlink'].sum(),
-                             np.array(out['L1']['lostL1b']).sum())
-                            ),
-                            fontsize=8,
-                            verticalalignment='top',
-                            horizontalalignment='left',
-                            transform=new_axis.transAxes)
-
-
-    fit(out['compress'],int(np.max(out['compress'])))
-    fit.plot(axis = fig.add_subplot(244),
-            title = "Data Frame Length (Compression)",
-            xlabel = "Number of QDC fields",
-            ylabel = "Hits",
-            res = False,
-            fit = False)
-
-    # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
-    A = np.arange(0,int(np.max(out['compress'])),1)
-    D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
-    D_save = (A-1)*10
-    B_data = np.multiply(D_data,fit.hist)
-    B_save = np.multiply(D_save,fit.hist)
-    B_save[0]=0
-    B_save[1]=0
-    new_axis_2 = fig.add_subplot(248)
-    x_data = fit.bin_centers
-    new_axis_2.bar(x_data,B_data,color='r')
-    new_axis_2.bar(x_data,B_save,color='b')
-    new_axis_2.set_title("Data sent vs frame length")
-    new_axis_2.set_xlabel("Length of frame in QDC data")
-    new_axis_2.set_ylabel("Red - Data sent (bits) / Blue - Data saved (bits)")
-
-    new_axis_2.text(0.99,0.97,(("TOTAL DATA SENT = %d bits\n" + \
-                             "DATA REDUCTION  = %d bits\n" + \
-                             "COMPRESS RATIO = %f \n") % \
-                            (np.sum(B_data),np.sum(B_save),float(np.sum(B_save))/float(np.sum(B_save)+np.sum(B_data)))),
-                            fontsize=8,
-                            verticalalignment='top',
-                            horizontalalignment='right',
-                            transform=new_axis_2.transAxes)
-
-
-    fig.tight_layout()
-
     # Write output to file
     DAQ_dump = HF.DAQ_IO(CG['ENVIRONMENT']['path_to_files'],
                     CG['ENVIRONMENT']['file_name'],
@@ -462,5 +312,11 @@ if __name__ == '__main__':
     DAQ_dump.write_out(out['data'],topology,logs)
 
 
-    plt.savefig(CG['ENVIRONMENT']['out_file_name']+"_"+ file_name + ".pdf")
-    #plt.show()
+
+
+    #//////////////////////////////////////////////////////////////////
+    #///                     DATA ANALYSIS AND GRAPHS               ///
+    #//////////////////////////////////////////////////////////////////
+
+    graphic_out = HF.infinity_graphs([file_name],path)
+    graphic_out()
