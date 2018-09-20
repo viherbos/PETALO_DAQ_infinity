@@ -13,6 +13,7 @@ import time
 import matplotlib.pyplot as plt
 import fit_library
 import config_sim as CFG
+import DAQ_infinity as DAQ
 
 
 class DAQ_IO(object):
@@ -352,7 +353,8 @@ class infinity_graphs(object):
 
         # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
         A = np.arange(0,np.max(compress))
-        D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
+        D_data = [DAQ.L1_outframe_nbits(i) for i in A]
+        #D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
         D_save = (A-1)*10
         B_data = np.multiply(D_data,fit.hist)
         B_save = np.multiply(D_save,fit.hist)

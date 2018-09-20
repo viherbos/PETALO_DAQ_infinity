@@ -100,11 +100,11 @@ def L1_outframe_nbits(data, frame_type=1, n_CH=7,
     # FRAME TYPE  | n_CH | TDCmin | n_CH * [CH | QDC] | Subthr sum(QDC)
     #     1b      |  7b  |  26b   | n_CH * (13b+10b)  | 10 bits B_QDC
     ########################################################################
-    if data[0]>0:
+    if data>0:
         c=1
     else:
         c=0
-    return (frame_type + c*n_CH + TDCmin + data[0]*(CH+QDC) + Subthr_sum)
+    return (frame_type + c*n_CH + TDCmin + data*(CH+QDC) + Subthr_sum)
 
 
 
@@ -461,7 +461,7 @@ class L1(object):
             msg = yield self.fifoB.get()
 
             # !!!!!!!!!!
-            n_bits_in_frame = L1_outframe_nbits(msg['data'])
+            n_bits_in_frame = L1_outframe_nbits(msg['data'][0])
 
             delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
             yield self.env.timeout(int(delay))
