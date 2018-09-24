@@ -240,6 +240,7 @@ class FE_outlink(object):
         self.res = simpy.Store(self.env,capacity=self.FIFO_out_size)
         self.action = env.process(self.run())
         self.latency = int(1E9/param.P['TOFPET']['outlink_rate'])
+        self.FIFO_delay = param.P['L1']['FIFO_L1a_freq']
         self.log = np.array([]).reshape(0,2)
         self.asic_id = asic_id
         self.out = None
@@ -266,6 +267,8 @@ class FE_outlink(object):
             yield self.env.timeout(self.latency)
             packet = yield self.res.get()
             self.lost = self.out.put(packet,self.lost)
+            yield self.env.timeout(1.0E9/self.FIFO_delay)
+            # L1 FIFO delay
 
     def __call__(self):
         output = {  'lost'   : self.lost,
@@ -360,6 +363,7 @@ class L1(object):
         self.action2    = env.process(self.runB())
         self.logA = np.array([]).reshape(0,2)
         self.logB = np.array([]).reshape(0,2)
+        self.logC = np.array([]).reshape(0,2)
 
     def print_statsA(self,in_time=0):
         self.logA=np.vstack([self.logA,[len(self.fifoA.items),in_time]])
@@ -368,6 +372,10 @@ class L1(object):
     def print_statsB(self):
         self.logB=np.vstack([self.logB,[len(self.fifoB.items),self.env.now]])
         # FIFO Statistics
+    def print_statsC(self,n_frames):
+        self.logB=np.vstack([self.logB,[n_frames,self.env.now]])
+        # Frame Statistics
+
 
     def process_frames(self):
         out=[]
@@ -426,6 +434,8 @@ class L1(object):
     def runA(self):
         while True:
             frame = yield self.fifoA.get()
+            yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1a_freq'])
+            # FIFO read delay
 
             if (self.frame_count < self.param.P['L1']['buffer_size']):
                 self.buffer = np.pad(self.buffer,((1,0),(0,0)),mode='constant')
@@ -434,9 +444,14 @@ class L1(object):
 
             if (self.frame_count == self.param.P['L1']['buffer_size']):
                 out = self.process_frames()
+                self.print_statsC(len(out))
+                # Time it takes to process a whole buffer
+                yield self.env.timeout(1.0E9/self.param.P['L1']['frame_process'])
+
                 for i in out:
-                    yield self.env.timeout(1.0E9/self.param.P['L1']['frame_process'])
                     self.lostB = self.putB(i,self.lostB)
+                    yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+                    # FIFO write delay
 
                 self.frame_count = 0
                 #self.flag = False
@@ -459,8 +474,9 @@ class L1(object):
     def runB(self):
         while True:
             msg = yield self.fifoB.get()
+            yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+            # FIFO read delay
 
-            # !!!!!!!!!!
             n_bits_in_frame = L1_outframe_nbits(msg['data'][0])
 
             delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
@@ -473,6 +489,7 @@ class L1(object):
         output = {  'lostL1b':self.lostB,
                     'logA'   :self.logA,
                     'logB'   :self.logB,
+                    'logC'   :self.logC,
                     'data_out':self.out_stream}
 
         return output

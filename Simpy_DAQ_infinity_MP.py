@@ -108,6 +108,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
     SIM_OUT_ASICs   = np.array(SIM_OUT['ASICS_out'])
     logA = np.array([]).reshape(0,2)
     logB = np.array([]).reshape(0,2)
+    logC = np.array([]).reshape(0,2)
     log_channels = np.array([]).reshape(0,2)
     log_outlink = np.array([]).reshape(0,2)
 
@@ -130,6 +131,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
         lostL1b.append(SIM_OUT_L1[j]['lostL1b'])
         logA=np.vstack([logA,SIM_OUT_L1[j]['logA']])
         logB=np.vstack([logB,SIM_OUT_L1[j]['logB']])
+        logC=np.vstack([logB,SIM_OUT_L1[j]['logC']])
 
         for i in range(len(SIM_OUT_L1[j]['data_out'])):
             #if SIM_OUT[j]['data_out'][i]['data'][0] > 0:
@@ -193,7 +195,8 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
 
     output = {'data': data,
               'L1': {'in_time': in_time, 'out_time': out_time,
-                     'lostL1b': lostL1b, 'logA': logA, 'logB': logB},
+                     'lostL1b': lostL1b, 'logA': logA, 'logB': logB,
+                     'logC': logC},
               'ASICS':{ 'lost_producers':lost_producers,
                         'lost_channels':lost_channels,
                         'lost_outlink':lost_outlink,
@@ -295,6 +298,7 @@ if __name__ == '__main__':
                     CG['ENVIRONMENT']['out_file_name']+"_"+ file_name + ".h5")
     logs = {  'logA':out['L1']['logA'],
               'logB':out['L1']['logB'],
+              'logC':out['L1']['logC'],
               'log_channels':out['ASICS']['log_channels'],
               'log_outlink': out['ASICS']['log_outlink'],
               'in_time': out['L1']['in_time'],

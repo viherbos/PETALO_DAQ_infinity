@@ -79,6 +79,7 @@ class DAQ_IO(object):
             topo_data = np.array(list(topology.values())).reshape(1,len(list(topology.values())))
             logA         = np.array(logs['logA'])
             logB         = np.array(logs['logB'])
+            logC         = np.array(logs['logC'])
             log_channels = np.array(logs['log_channels'])
             log_outlink = np.array(logs['log_outlink'])
             log_in_time = np.array(logs['in_time'])
@@ -87,6 +88,7 @@ class DAQ_IO(object):
             topo = pd.DataFrame(data = topo_data,columns = list(topology.keys()))
             logA = pd.DataFrame(data = logA)
             logB = pd.DataFrame(data = logB)
+            logC = pd.DataFrame(data = logC)
             log_channels = pd.DataFrame(data = log_channels)
             log_outlink  = pd.DataFrame(data = log_outlink)
             log_in_time  = pd.DataFrame(data = log_in_time)
@@ -102,6 +104,7 @@ class DAQ_IO(object):
             store.put('topology',topo)
             store.put('logA',logA)
             store.put('logB',logB)
+            store.put('logC',logC)
             store.put('log_channels',log_channels)
             store.put('log_outlink',log_outlink)
             store.put('in_time',log_in_time)
@@ -197,6 +200,7 @@ class infinity_graphs(object):
 
         logA         = np.array([]).reshape(0,2)
         logB         = np.array([]).reshape(0,2)
+        logC         = np.array([]).reshape(0,2)
         log_channels = np.array([]).reshape(0,2)
         log_outlink  = np.array([]).reshape(0,2)
         in_time      = np.array([]).reshape(0,1)
@@ -213,6 +217,7 @@ class infinity_graphs(object):
 
             logA         = np.vstack([logA,np.array(pd.read_hdf(filename,key='logA'))])
             logB         = np.vstack([logB,np.array(pd.read_hdf(filename,key='logB'))])
+            logC         = np.vstack([logB,np.array(pd.read_hdf(filename,key='logC'))])
             log_channels = np.vstack([log_channels,np.array(pd.read_hdf(filename,key='log_channels'))])
             log_outlink  = np.vstack([log_outlink,np.array(pd.read_hdf(filename,key='log_outlink'))])
             in_time      = np.vstack([in_time,np.array(pd.read_hdf(filename,key='in_time'))])
@@ -295,6 +300,15 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(345).transAxes)
+
+        fit(logC[:,0],CG['L1']['buffer_size'])
+        fit.plot(axis = fig.add_subplot(3,4,10),
+                title = "NUMBER OF FRAMES per BUFFER",
+                xlabel = "Number of Frames",
+                ylabel = "Hits",
+                res = False, fit = False)
+
+
         fit(latency,50)
         fit.plot(axis = fig.add_subplot(343),
                 title = "Total Data Latency",
