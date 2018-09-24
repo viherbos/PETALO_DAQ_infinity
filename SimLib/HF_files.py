@@ -217,7 +217,7 @@ class infinity_graphs(object):
 
             logA         = np.vstack([logA,np.array(pd.read_hdf(filename,key='logA'))])
             logB         = np.vstack([logB,np.array(pd.read_hdf(filename,key='logB'))])
-            logC         = np.vstack([logB,np.array(pd.read_hdf(filename,key='logC'))])
+            logC         = np.vstack([logC,np.array(pd.read_hdf(filename,key='logC'))])
             log_channels = np.vstack([log_channels,np.array(pd.read_hdf(filename,key='log_channels'))])
             log_outlink  = np.vstack([log_outlink,np.array(pd.read_hdf(filename,key='log_outlink'))])
             in_time      = np.vstack([in_time,np.array(pd.read_hdf(filename,key='in_time'))])
@@ -303,11 +303,11 @@ class infinity_graphs(object):
 
         fit(logC[:,0],CG['L1']['buffer_size'])
         fit.plot(axis = fig.add_subplot(3,4,10),
-                title = "NUMBER OF FRAMES per BUFFER",
+                title = "Number of Frames per Buffer",
                 xlabel = "Number of Frames",
                 ylabel = "Hits",
                 res = False, fit = False)
-
+        
 
         fit(latency,50)
         fit.plot(axis = fig.add_subplot(343),
@@ -321,19 +321,6 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(343).transAxes)
-
-        fit(latency_L1,50)
-        fit.plot(axis = fig.add_subplot(349),
-                title = "L1 input Data Latency",
-                xlabel = "Latency in nanoseconds",
-                ylabel = "Hits",
-                res = False)
-        fig.add_subplot(349).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
-                                                (max(latency_L1)))),
-                                                fontsize=7,
-                                                verticalalignment='top',
-                                                horizontalalignment='right',
-                                                transform=fig.add_subplot(349).transAxes)
 
         new_axis = fig.add_subplot(347)
         x_data = fit.bin_centers
@@ -356,6 +343,19 @@ class infinity_graphs(object):
                                 horizontalalignment='left',
                                 transform=new_axis.transAxes)
 
+        fit(latency_L1,50)
+        fit.plot(axis = fig.add_subplot(349),
+                title = "L1 input Data Latency",
+                xlabel = "Latency in nanoseconds",
+                ylabel = "Hits",
+                res = False)
+        fig.add_subplot(349).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
+                                                (max(latency_L1)))),
+                                                fontsize=7,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(349).transAxes)
+
 
         fit(compress,int(np.max(compress)))
         fit.plot(axis = fig.add_subplot(344),
@@ -364,6 +364,7 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False,
                 fit = False)
+        fig.add_subplot(344).set_yscale('log')
 
         # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
         A = np.arange(0,np.max(compress))

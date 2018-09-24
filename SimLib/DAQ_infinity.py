@@ -373,7 +373,7 @@ class L1(object):
         self.logB=np.vstack([self.logB,[len(self.fifoB.items),self.env.now]])
         # FIFO Statistics
     def print_statsC(self,n_frames):
-        self.logB=np.vstack([self.logB,[n_frames,self.env.now]])
+        self.logC=np.vstack([self.logC,[n_frames,self.env.now]])
         # Frame Statistics
 
 
@@ -444,15 +444,16 @@ class L1(object):
 
             if (self.frame_count == self.param.P['L1']['buffer_size']):
                 out = self.process_frames()
-                self.print_statsC(len(out))
                 # Time it takes to process a whole buffer
+                self.print_statsC(len(out))
                 yield self.env.timeout(1.0E9/self.param.P['L1']['frame_process'])
 
+                cnt = 0
                 for i in out:
+                    cnt = cnt + 1
                     self.lostB = self.putB(i,self.lostB)
                     yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
                     # FIFO write delay
-
                 self.frame_count = 0
                 #self.flag = False
                 self.buffer = np.array([]).reshape(0,6)

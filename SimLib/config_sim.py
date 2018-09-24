@@ -47,13 +47,13 @@ class SIM_DATA(object):
                                         'TE':2,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :750E6,
+                        'L1'          :{'L1_outrate'    :1000E6,
                                         'frame_process' :1.5E6,
-                                        'FIFO_L1a_depth':256,
+                                        'FIFO_L1a_depth':512,
                                         'FIFO_L1a_freq' :400E6,
-                                        'FIFO_L1b_depth':256,
+                                        'FIFO_L1b_depth':1024,
                                         'FIFO_L1b_freq' :400E6,
-                                        'buffer_size'   :128,
+                                        'buffer_size'   :512,
                                         'n_asics'       :9,
                                         'TE'            :3,
                                         'map_style'     :'striped_3',
@@ -91,7 +91,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "OF_4mm_min"
+    filename = "OF_4mm_BUF512"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()

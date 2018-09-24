@@ -131,7 +131,7 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
         lostL1b.append(SIM_OUT_L1[j]['lostL1b'])
         logA=np.vstack([logA,SIM_OUT_L1[j]['logA']])
         logB=np.vstack([logB,SIM_OUT_L1[j]['logB']])
-        logC=np.vstack([logB,SIM_OUT_L1[j]['logC']])
+        logC=np.vstack([logC,SIM_OUT_L1[j]['logC']])
 
         for i in range(len(SIM_OUT_L1[j]['data_out'])):
             #if SIM_OUT[j]['data_out'][i]['data'][0] > 0:
