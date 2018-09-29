@@ -80,6 +80,7 @@ class DAQ_IO(object):
             logA         = np.array(logs['logA'])
             logB         = np.array(logs['logB'])
             logC         = np.array(logs['logC'])
+            frame_frag   = logs['frame_frag']
             log_channels = np.array(logs['log_channels'])
             log_outlink = np.array(logs['log_outlink'])
             log_in_time = np.array(logs['in_time'])
@@ -89,6 +90,7 @@ class DAQ_IO(object):
             logA = pd.DataFrame(data = logA)
             logB = pd.DataFrame(data = logB)
             logC = pd.DataFrame(data = logC)
+            frame_frag = pd.DataFrame(data = frame_frag)
             log_channels = pd.DataFrame(data = log_channels)
             log_outlink  = pd.DataFrame(data = log_outlink)
             log_in_time  = pd.DataFrame(data = log_in_time)
@@ -113,6 +115,7 @@ class DAQ_IO(object):
             store.put('compress',compress)
             store.put('tstamp_event',tstamp_event)
             store.put('timestamp',timestamp)
+            store.put('frame_frag',frame_frag)
             store.close()
 
 
@@ -198,6 +201,12 @@ class infinity_graphs(object):
 
     def __call__(self):
 
+        # Read first config_file to get n_L1 (same for all files)
+        config_file = self.data_path + self.config_file[0] + ".json"
+        CG   = CFG.SIM_DATA(filename = config_file,read = True)
+        CG   = CG.data
+        n_L1 = np.array(CG['L1']['L1_mapping_O']).shape[0]
+
         logA         = np.array([]).reshape(0,2)
         logB         = np.array([]).reshape(0,2)
         logC         = np.array([]).reshape(0,2)
@@ -207,6 +216,7 @@ class infinity_graphs(object):
         out_time     = np.array([]).reshape(0,1)
         lost         = np.array([]).reshape(0,4)
         compress     = np.array([]).reshape(0,1)
+        frame_frag   = np.array([]).reshape(0,n_L1+1)
 
         for i in self.config_file:
             config_file2 = self.data_path + i + ".json"
@@ -224,7 +234,7 @@ class infinity_graphs(object):
             out_time     = np.vstack([out_time,np.array(pd.read_hdf(filename,key='out_time'))])
             lost         = np.vstack([lost,np.array(pd.read_hdf(filename,key='lost'))])
             compress     = np.vstack([compress,np.array(pd.read_hdf(filename,key='compress'))])
-
+            frame_frag   = np.vstack([frame_frag,np.array(pd.read_hdf(filename,key='frame_frag'))])
 
         latency_L1 = logA[:,1]
         latency    = out_time-in_time
@@ -306,15 +316,15 @@ class infinity_graphs(object):
                 title = "Number of Frames per Buffer",
                 xlabel = "Number of Frames",
                 ylabel = "Hits",
-                res = False, fit = False)
-        
+                res = False, fit = True)
+
 
         fit(latency,50)
         fit.plot(axis = fig.add_subplot(343),
                 title = "Total Data Latency",
                 xlabel = "Latency in nanoseconds",
                 ylabel = "Hits",
-                res = False)
+                res = False, fit = False)
         fig.add_subplot(343).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
                                                 (max(latency)))),
                                                 fontsize=7,
@@ -348,7 +358,7 @@ class infinity_graphs(object):
                 title = "L1 input Data Latency",
                 xlabel = "Latency in nanoseconds",
                 ylabel = "Hits",
-                res = False)
+                res = False, fit = False)
         fig.add_subplot(349).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
                                                 (max(latency_L1)))),
                                                 fontsize=7,
@@ -359,7 +369,7 @@ class infinity_graphs(object):
 
         fit(compress,int(np.max(compress)))
         fit.plot(axis = fig.add_subplot(344),
-                title = "Data Frame Length (Compression)",
+                title = "Data Frame Length",
                 xlabel = "Number of QDC fields",
                 ylabel = "Hits",
                 res = False,
@@ -371,6 +381,8 @@ class infinity_graphs(object):
         D_data = [DAQ.L1_outframe_nbits(i) for i in A]
         #D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
         D_save = (A-1)*10
+        #This is what you save when only one TDC is sent
+
         B_data = np.multiply(D_data,fit.hist)
         B_save = np.multiply(D_save,fit.hist)
         B_save[0]=0
@@ -386,11 +398,31 @@ class infinity_graphs(object):
         new_axis_2.text(0.99,0.97,(("TOTAL DATA SENT = %d bits\n" + \
                                  "DATA REDUCTION  = %d bits\n" + \
                                  "COMPRESS RATIO = %f \n") % \
-                                (np.sum(B_data),np.sum(B_save),float(np.sum(B_save))/float(np.sum(B_save)+np.sum(B_data)))),
+                                (np.sum(B_data),np.sum(B_save),float(np.sum(B_data))/float(np.sum(B_save)+np.sum(B_data)))),
                                 fontsize=8,
                                 verticalalignment='top',
                                 horizontalalignment='right',
                                 transform=new_axis_2.transAxes)
+
+
+        ############### FRAME FRAGMENTATION ANALYSIS ##########################
+        frag_matrix = frame_frag[:,1:]
+        frag_matrix = frag_matrix.reshape(-1)
+        fit(frag_matrix,int(np.max(frag_matrix)))
+        fit.plot(axis = fig.add_subplot(3,4,11),
+                title = "Frame Fragmentation - (TIME)",
+                xlabel = "Frame pieces (Buffers)",
+                ylabel = "Hits",
+                res = False, fit = False)
+
+        frag_matrix = frame_frag[:,1:]
+        for ev in frag_matrix:
+            non_zero = np.array((ev > 0))*np.arange(n_L1)
+            non_zero = np.array((non_zero > 0))
+            for i in non_zero:
+                distance_a = np.abs(non_zero - i)
+                distance_b = np.abs(n_L1-distance_a)
+                distance = np.minimum(distance_a,distance_b)
 
 
         fig.tight_layout()
@@ -400,7 +432,8 @@ class infinity_graphs(object):
 
 
 def main():
-    A = infinity_graphs(["OF_4mm_min"],"/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/")
+    A = infinity_graphs(["OF_4mm_BUF1024_testA"],
+                         "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/")
     A()
     # start = time.time()
     #

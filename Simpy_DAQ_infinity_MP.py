@@ -100,7 +100,7 @@ def DAQ_sim(sim_info):
 
 
 def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
-    data, in_time, out_time, lostL1a, lostL1b = [],[],[],[],[]
+    data, in_time, out_time, L1_id, lostL1a, lostL1b = [],[],[],[],[],[]
     lost_producers= np.array([]).reshape(0,1)
     lost_channels = np.array([]).reshape(0,1)
     lost_outlink = np.array([]).reshape(0,1)
@@ -111,6 +111,9 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
     logC = np.array([]).reshape(0,2)
     log_channels = np.array([]).reshape(0,2)
     log_outlink = np.array([]).reshape(0,2)
+    L1_frag     = np.array([]).reshape(0,n_L1)
+    L1_frag_aux = np.zeros((1,n_L1),dtype=int)
+
 
     # Gather information from ASICS layer
     for j in range(n_asics):
@@ -138,11 +141,15 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
             data.append(SIM_OUT_L1[j]['data_out'][i]['data'])
             in_time.append(SIM_OUT_L1[j]['data_out'][i]['in_time'])
             out_time.append(SIM_OUT_L1[j]['data_out'][i]['out_time'])
+            L1_id.append(j)
 
-
+    
     A = np.array(data)
     sort = np.array([i[1] for i in A])
-    A = A[np.argsort(sort)]
+    sort_res = np.argsort(sort)
+    A = A[sort_res]
+    L1_id = np.array(L1_id)
+    L1_id = L1_id[sort_res]
 
     n_TDC = np.array([])
     i_TDC = np.array([])
@@ -156,6 +163,21 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
             cond = np.array((TDC == i))
             n_TDC = np.concatenate((n_TDC,[np.sum(cond)]),axis=0)
             i_TDC = np.concatenate((i_TDC,[i]),axis=0)
+            # For each TDC==i take all L1_id
+
+            selec = np.array(range(len(cond)))
+
+            for j in selec[cond]:
+                #print ("%d - %d" % (i,L1_id[j]))
+                L1_frag_aux[0,L1_id[j]] += 1
+
+            #print L1_frag_aux
+
+            if (np.sum(L1_frag_aux[0,:]) != np.sum(cond)):
+                print ("FRAGMENTATION ASSERTION")
+            L1_frag = np.vstack([L1_frag,L1_frag_aux])
+
+            L1_frag_aux = np.zeros((1,n_L1),dtype=int)
             prev = i
     # Scan TDC list : n_TDC number of dataframes with same i_TDC
     # i_TDC list of different TDC
@@ -194,16 +216,21 @@ def DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,first_SiPM):
 
 
     output = {'data': data,
+
               'L1': {'in_time': in_time, 'out_time': out_time,
                      'lostL1b': lostL1b, 'logA': logA, 'logB': logB,
-                     'logC': logC},
+                     'logC': logC, 'frag':np.hstack([np.transpose([i_TDC]),L1_frag])},
+
               'ASICS':{ 'lost_producers':lost_producers,
                         'lost_channels':lost_channels,
                         'lost_outlink':lost_outlink,
                         'log_channels':log_channels,
                         'log_outlink':log_outlink},
+
               'compress': n_words,
+
               'tstamp_event':np.array(event_order),
+
               'timestamp':time_vector
             }
 
@@ -247,14 +274,14 @@ if __name__ == '__main__':
     # Number of files to group for data input
     A = HF.hdf_compose( CG['ENVIRONMENT']['path_to_files'],
                         CG['ENVIRONMENT']['file_name'],
-                        range(n_files),n_sipms)
+                        n_files,n_sipms)
     DATA,sensors,n_events = A.compose()
 
 
     # Number of events for simulation
     n_events = CG['ENVIRONMENT']['n_events']
     DATA = DATA[0:n_events,:]
-    print (" %d EVENTS IN %d H5 FILES" % (n_events,n_files))
+    print (" %d EVENTS IN %d H5 FILES" % (n_events,len(n_files)))
 
     # SHOW = PG.DET_SHOW(CG.data)
     # os.chdir("/home/viherbos/DAQ_DATA/NEUTRINOS/RING/")
@@ -299,6 +326,7 @@ if __name__ == '__main__':
     logs = {  'logA':out['L1']['logA'],
               'logB':out['L1']['logB'],
               'logC':out['L1']['logC'],
+              'frame_frag':out['L1']['frag'],
               'log_channels':out['ASICS']['log_channels'],
               'log_outlink': out['ASICS']['log_outlink'],
               'in_time': out['L1']['in_time'],
@@ -312,6 +340,7 @@ if __name__ == '__main__':
               'tstamp_event':out['tstamp_event'],
               'timestamp':out['timestamp']
             }
+
 
     DAQ_dump.write_out(out['data'],topology,logs)
 

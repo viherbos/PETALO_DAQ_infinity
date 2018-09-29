@@ -405,10 +405,11 @@ class L1(object):
             # Build Data frame
 
             out.extend([{'data'      :data_frame,
-                        'event'     :self.buffer[0,1],
-                        'asic_id'   :self.buffer[0,3],
+                        #'event'     :self.buffer[0,1],
+                        #'asic_id'   :self.buffer[0,3],
                         'in_time'   :time,
-                        'out_time'  :0}])
+                        'out_time'  :0
+                        }])
 
             #take all the used data out of the buffer
             cond_not = np.invert(cond)

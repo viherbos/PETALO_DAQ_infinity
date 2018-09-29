@@ -27,8 +27,8 @@ class SIM_DATA(object):
                                         'out_file_name':"DAQ_OUT_oneface",
                                         'MC_out_file_name':"DAQ_OUT_oneface",
                                         'time_bin': 5,
-                                        'n_files' : 12,
-                                        'n_events': 30000},
+                                        'n_files' : range(12),
+                                        'n_events': 50000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
@@ -47,18 +47,18 @@ class SIM_DATA(object):
                                         'TE':2,
                                         'TGAIN':1},
 
-                        'L1'          :{'L1_outrate'    :1000E6,
-                                        'frame_process' :1.5E6,
+                        'L1'          :{'L1_outrate'    :2000E6,
+                                        'frame_process' :500E3,
                                         'FIFO_L1a_depth':512,
                                         'FIFO_L1a_freq' :400E6,
-                                        'FIFO_L1b_depth':1024,
+                                        'FIFO_L1b_depth':64,
                                         'FIFO_L1b_freq' :400E6,
-                                        'buffer_size'   :512,
+                                        'buffer_size'   :1024,
                                         'n_asics'       :9,
                                         'TE'            :3,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
-                                        'L1_mapping_O'  :[8,8,8,8,8,8,8,8,7]
+                                        'L1_mapping_O'  :[11,12,12,12,12,12]
                                         }
                        }
 
@@ -91,7 +91,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "OF_4mm_BUF512"
+    filename = "OF_4mm_BUF1024_testA"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()
