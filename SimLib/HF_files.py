@@ -255,7 +255,7 @@ class infinity_graphs(object):
         fit = fit_library.gauss_fit()
         fig = plt.figure(figsize=(20,10))
 
-        fit(log_channels[:,0],CG['TOFPET']['IN_FIFO_depth'])
+        fit(log_channels[:,0],range(1,CG['TOFPET']['IN_FIFO_depth']+2))
         fit.plot(axis = fig.add_subplot(341),
                 title = "ASICS Channel Input analog FIFO (4)",
                 xlabel = "FIFO Occupancy",
@@ -311,7 +311,7 @@ class infinity_graphs(object):
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(345).transAxes)
 
-        fit(logC[:,0],CG['L1']['buffer_size'])
+        fit(logC[:,0],range(int(np.max(logC[:,0]))+2))
         fit.plot(axis = fig.add_subplot(3,4,10),
                 title = "Number of Frames per Buffer",
                 xlabel = "Number of Frames",
@@ -406,23 +406,81 @@ class infinity_graphs(object):
 
 
         ############### FRAME FRAGMENTATION ANALYSIS ##########################
+        # TIME FRAGMENTATION
         frag_matrix = frame_frag[:,1:]
         frag_matrix = frag_matrix.reshape(-1)
-        fit(frag_matrix,int(np.max(frag_matrix)))
+        frag_matrix = (frag_matrix>0)*frag_matrix
+        fit(frag_matrix,range(1,int(np.max(frag_matrix))+2))
+        print int(np.max(frag_matrix))
         fit.plot(axis = fig.add_subplot(3,4,11),
                 title = "Frame Fragmentation - (TIME)",
                 xlabel = "Frame pieces (Buffers)",
                 ylabel = "Hits",
                 res = False, fit = False)
+        fig.add_subplot(3,4,11).set_yscale('log')
 
+        # SPATIAL FRAGMENTATION
+        cluster_record = []
         frag_matrix = frame_frag[:,1:]
+
         for ev in frag_matrix:
-            non_zero = np.array((ev > 0))*np.arange(n_L1)
-            non_zero = np.array((non_zero > 0))
-            for i in non_zero:
-                distance_a = np.abs(non_zero - i)
-                distance_b = np.abs(n_L1-distance_a)
-                distance = np.minimum(distance_a,distance_b)
+            clusters_aux = np.zeros((1,2))
+            clusters = np.array([]).reshape(0,2)
+            flag = False
+            L1_count = 0
+            # First element , Last element
+            for L1 in ev:
+                if (L1 > 0):
+                    # Cluster detected
+                    if (flag == False):
+                        # First element in the cluster
+                        clusters_aux[0,0] = L1_count
+                        clusters_aux[0,1] = L1_count
+                        flag = True
+                    else:
+                        # Inside the cluster
+                        clusters_aux[0,1] = L1_count
+                        flag = True
+
+                    if (L1_count == (n_L1-1)):
+                        clusters = np.vstack([clusters,clusters_aux])
+                else:
+                    if (flag == True):
+                        # End of cluster
+                        flag = False
+                        clusters = np.vstack([clusters,clusters_aux])
+                        clusters_aux = np.zeros((1,2))
+                    else:
+                        # No cluster detected
+                        flag = False
+
+                L1_count += 1
+
+            # Must solve special case of boundary cluster in circular buffer
+            if ((clusters[0,0] == 0) and (clusters[-1,1] == (L1_count-1))):
+                clusters[0,0] = clusters[-1,0]
+                clusters = clusters[:-1,:]
+
+            cluster_record.append(clusters)
+
+        cluster_lengths = []
+        # LET'S FIND CLUSTER LENGTHS
+        for i in cluster_record:
+            for j in i:
+                if (j[1] >= j[0]):
+                    cluster_lengths.append(int(j[1]-j[0]+1))
+                else:
+                    cluster_lengths.append(int(j[1]-j[0]+n_L1+1))
+
+        fit(cluster_lengths,range(1,int(np.max(cluster_lengths))+2))
+        fit.plot(axis = fig.add_subplot(3,4,12),
+                title = "Frame Fragmentation - (SPACE)",
+                xlabel = "Number of L1 per event",
+                ylabel = "Hits",
+                res = False,
+                fit = False)
+        fig.add_subplot(3,4,12).set_yscale('log')
+
 
 
         fig.tight_layout()
