@@ -311,6 +311,7 @@ class infinity_graphs(object):
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(345).transAxes)
 
+
         fit(logC[:,0],range(int(np.max(logC[:,0]))+2))
         fit.plot(axis = fig.add_subplot(3,4,10),
                 title = "Number of Frames per Buffer",
