@@ -34,9 +34,9 @@ class SIM_DATA(object):
 
                         'TOPOLOGY'    :{'radius_int'   :150,
                                         'radius_ext'   :180,
-                                        'sipm_int_row':0,
-                                        'sipm_ext_row':282,
-                                        'n_rows'      :16},
+                                        'sipm_int_row' :0,
+                                        'sipm_ext_row' :282,
+                                        'n_rows'       :16},
 
                         'TOFPET'      :{'n_channels'  :64,
                                         'outlink_rate': (2.6E9/80)/2.0,
@@ -48,13 +48,13 @@ class SIM_DATA(object):
                                         'TGAIN':1},
 
                         'L1'          :{'L1_outrate'    :2000E6,
-                                        'frame_process' :500E3,
-                                        'FIFO_L1a_depth':512,
+                                        'frame_process' :5000,
+                                        'FIFO_L1a_depth':1280,
                                         'FIFO_L1a_freq' :400E6,
-                                        'FIFO_L1b_depth':64,
+                                        'FIFO_L1b_depth':128,
                                         'FIFO_L1b_freq' :400E6,
-                                        'buffer_size'   :1024,
-                                        'n_asics'       :9,
+                                        'buffer_size'   :640,
+                                        'n_asics'       :12,
                                         'TE'            :3,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
@@ -91,7 +91,7 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "OF_4mm_BUF1024_testA"
+    filename = "OF_4mm_BUF640_V3"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()

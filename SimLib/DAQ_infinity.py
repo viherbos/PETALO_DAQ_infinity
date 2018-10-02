@@ -359,8 +359,8 @@ class L1(object):
         self.flag       = False
         self.frame_count = 0
         self.lostB      = 0
-        self.action1    = env.process(self.runA())
-        self.action2    = env.process(self.runB())
+        self.action1    = env.process(self.PreBUFFER_load())
+        self.action2    = env.process(self.L1_outlink())
         self.logA = np.array([]).reshape(0,2)
         self.logB = np.array([]).reshape(0,2)
         self.logC = np.array([]).reshape(0,2)
@@ -432,7 +432,7 @@ class L1(object):
 
 
 
-    def runA(self):
+    def PreBUFFER_load(self):
         while True:
             frame = yield self.fifoA.get()
             yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1a_freq'])
@@ -447,7 +447,7 @@ class L1(object):
                 out = self.process_frames()
                 # Time it takes to process a whole buffer
                 self.print_statsC(len(out))
-                yield self.env.timeout(1.0E9/self.param.P['L1']['frame_process'])
+                yield self.env.timeout(self.param.P['L1']['frame_process'])
 
                 cnt = 0
                 for i in out:
@@ -473,7 +473,7 @@ class L1(object):
             return (lost+1)
 
 
-    def runB(self):
+    def L1_outlink(self):
         while True:
             msg = yield self.fifoB.get()
             yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])

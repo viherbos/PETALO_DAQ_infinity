@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import fit_library
 import config_sim as CFG
 import DAQ_infinity as DAQ
+from matplotlib.ticker import MaxNLocator
 
 
 class DAQ_IO(object):
@@ -262,6 +263,7 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False, fit = False)
         fig.add_subplot(341).set_yscale('log')
+        fig.add_subplot(341).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(341).text(0.99,0.97,(("ASIC Input FIFO reached %.1f %%" % \
                                                 (WC_CH_FIFO))),
                                                 fontsize=8,
@@ -276,6 +278,7 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False, fit = False)
         fig.add_subplot(342).set_yscale('log')
+        fig.add_subplot(342).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(342).text(0.99,0.97,(("ASIC Outlink FIFO reached %.1f %%" % \
                                                 (WC_OLINK_FIFO))),
                                                 fontsize=8,
@@ -290,6 +293,7 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False, fit = False)
         fig.add_subplot(346).set_yscale('log')
+        fig.add_subplot(346).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(346).text(0.99,0.97,(("L1_A FIFO reached %.1f %%" % \
                                                 (WC_L1_A_FIFO))),
                                                 fontsize=8,
@@ -304,6 +308,7 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False, fit = False)
         fig.add_subplot(345).set_yscale('log')
+        fig.add_subplot(345).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(345).text(0.99,0.97,(("L1_B FIFO reached %.1f %%" % \
                                                 (WC_L1_B_FIFO))),
                                                 fontsize=8,
@@ -318,7 +323,7 @@ class infinity_graphs(object):
                 xlabel = "Number of Frames",
                 ylabel = "Hits",
                 res = False, fit = True)
-
+        fig.add_subplot(3,4,10).xaxis.set_major_locator(MaxNLocator(integer=True))
 
         fit(latency,50)
         fit.plot(axis = fig.add_subplot(343),
@@ -332,6 +337,8 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(343).transAxes)
+        fig.add_subplot(343).xaxis.set_major_locator(MaxNLocator(integer=True))
+
 
         new_axis = fig.add_subplot(347)
         x_data = fit.bin_centers
@@ -366,6 +373,7 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(349).transAxes)
+        fig.add_subplot(349).xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
         fit(compress,int(np.max(compress)))
@@ -376,7 +384,7 @@ class infinity_graphs(object):
                 res = False,
                 fit = False)
         fig.add_subplot(344).set_yscale('log')
-
+        fig.add_subplot(344).xaxis.set_major_locator(MaxNLocator(integer=True))
         # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
         A = np.arange(0,np.max(compress))
         D_data = [DAQ.L1_outframe_nbits(i) for i in A]
@@ -419,6 +427,8 @@ class infinity_graphs(object):
                 ylabel = "Hits",
                 res = False, fit = False)
         fig.add_subplot(3,4,11).set_yscale('log')
+        fig.add_subplot(3,4,11).set_ylim(bottom=1)
+        fig.add_subplot(3,4,11).xaxis.set_major_locator(MaxNLocator(integer=True))
 
         # SPATIAL FRAGMENTATION
         cluster_record = []
@@ -481,7 +491,7 @@ class infinity_graphs(object):
                 res = False,
                 fit = False)
         fig.add_subplot(3,4,12).set_yscale('log')
-
+        fig.add_subplot(3,4,12).xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
         fig.tight_layout()
@@ -491,7 +501,7 @@ class infinity_graphs(object):
 
 
 def main():
-    A = infinity_graphs(["OF_4mm_BUF1024_testA"],
+    A = infinity_graphs(["OF_4mm_BUF4096_testC"],
                          "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/")
     A()
     # start = time.time()
