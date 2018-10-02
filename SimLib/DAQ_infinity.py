@@ -346,24 +346,30 @@ class L1(object):
 
     """
     def __init__(self,env,out_stream,param,L1_id):
-        self.env        = env
-        self.L1_id      = L1_id
-        self.param      = param
-        self.out_stream = out_stream
-        self.latency    = int(1E9/param.P['L1']['L1_outrate'])
-        self.fifoA      = simpy.Store(self.env,
+        self.env            = env
+        self.L1_id          = L1_id
+        self.param          = param
+        self.out_stream     = out_stream
+        self.latency        = int(1E9/param.P['L1']['L1_outrate'])
+        self.fifoA          = simpy.Store(self.env,
                                     capacity=param.P['L1']['FIFO_L1a_depth'])
-        self.fifoB      = simpy.Store(self.env,
+        self.fifoB          = simpy.Store(self.env,
                                     capacity=param.P['L1']['FIFO_L1b_depth'])
-        self.buffer     = np.array([]).reshape(0,6)
-        self.flag       = False
-        self.frame_count = 0
-        self.lostB      = 0
-        self.action1    = env.process(self.PreBUFFER_load())
-        self.action2    = env.process(self.L1_outlink())
+        self.buffer_A       = np.array([]).reshape(0,6)
+        self.buffer_B       = np.array([]).reshape(0,6)
+        self.flag           = False
+        self.frame_count    = 0
+        self.lostB          = 0
+        self.action1        = env.process(self.PreBUFFER_load())
+        self.action2        = env.process(self.L1_outlink())
+        self.process_frames = env.process(self.process_frames())
+        self.act_buffer_proc = env.event()
+        self.flag           = env.Resource(env,capacity=1)
+
         self.logA = np.array([]).reshape(0,2)
         self.logB = np.array([]).reshape(0,2)
         self.logC = np.array([]).reshape(0,2)
+
 
     def print_statsA(self,in_time=0):
         self.logA=np.vstack([self.logA,[len(self.fifoA.items),in_time]])
@@ -378,44 +384,65 @@ class L1(object):
 
 
     def process_frames(self):
-        out=[]
-        while (self.buffer.shape[0]>0):
-            time = self.buffer[0,4]
-            cond = np.array(self.buffer[:,4]==time)
-            buffer_sel = self.buffer[cond,:]
-            #Select those with same IN_TIME
+        while True:
+            yield self.act_buffer_proc
+            # Wait until act_buffer_proc is triggered
 
-            data_frame = [-1,time]
-            sum_QDC = 0
-            n_ch = 0
-            for i in buffer_sel[:,:]:
-                if i[0] > self.param.P['L1']['TE']:
-                    data_frame.append(i[2])
-                    data_frame.append(i[0])
-                    n_ch +=1
-                else:
-                    sum_QDC += i[0]
-            if (n_ch == 0):
-                data_frame.append(11111)
-            # This is for any SiPM in the ASIC
-            data_frame.append(sum_QDC)
+        with self.flag.request() as request_flag:
 
-            data_frame[0] = n_ch
+            yield request_flag
+            out=[]
+            while (self.buffer_B.shape[0]>0):
+                time = self.buffer_B[0,4]
+                cond = np.array(self.buffer_B[:,4]==time)
+                buffer_sel = self.buffer_B[cond,:]
+                #Select those with same IN_TIME
 
-            # Build Data frame
+                data_frame = [-1,time]
+                sum_QDC = 0
+                n_ch = 0
+                for i in buffer_sel[:,:]:
+                    if i[0] > self.param.P['L1']['TE']:
+                        data_frame.append(i[2])
+                        data_frame.append(i[0])
+                        n_ch +=1
+                    else:
+                        sum_QDC += i[0]
+                if (n_ch == 0):
+                    data_frame.append(11111)
+                # This is for any SiPM in the ASIC
+                data_frame.append(sum_QDC)
 
-            out.extend([{'data'      :data_frame,
-                        #'event'     :self.buffer[0,1],
-                        #'asic_id'   :self.buffer[0,3],
-                        'in_time'   :time,
-                        'out_time'  :0
-                        }])
+                data_frame[0] = n_ch
 
-            #take all the used data out of the buffer
-            cond_not = np.invert(cond)
-            self.buffer = self.buffer[cond_not]
+                # Build Data frame
 
-        return out
+                out.extend([{'data'      :data_frame,
+                            #'event'     :self.buffer[0,1],
+                            #'asic_id'   :self.buffer[0,3],
+                            'in_time'   :time,
+                            'out_time'  :0
+                            }])
+
+                #take all the used data out of the buffer
+                cond_not = np.invert(cond)
+                self.buffer_B = self.buffer_B[cond_not]
+
+
+            self.print_statsC(len(out))
+            yield self.env.timeout(self.param.P['L1']['frame_process'])
+
+            # Write Output Frames to output FIFO
+            cnt = 0
+            for i in out:
+                cnt = cnt + 1
+                self.lostB = self.putB(i,self.lostB)
+                n_SIPM = i['data'][0]
+                yield self.env.timeout(n_SIPM*1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+                # FIFO write delay
+
+            self.flag.release(request_flag)
+
 
 
     def put(self,data,lost):
@@ -435,30 +462,31 @@ class L1(object):
     def PreBUFFER_load(self):
         while True:
             frame = yield self.fifoA.get()
-
             yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1a_freq'])
             # FIFO read delay
 
             if (self.frame_count < self.param.P['L1']['buffer_size']):
-                self.buffer = np.pad(self.buffer,((1,0),(0,0)),mode='constant')
-                self.buffer[0,:] = frame
+                self.buffer_A = np.pad(self.buffer_A,((1,0),(0,0)),mode='constant')
+                self.buffer_A[0,:] = frame
                 self.frame_count += 1
 
             if (self.frame_count == self.param.P['L1']['buffer_size']):
-                out = self.process_frames()
-                # Time it takes to process a whole buffer
-                self.print_statsC(len(out))
-                yield self.env.timeout(self.param.P['L1']['frame_process'])
+                # Switch buffer and keep working
+                self.buffer_B = np.copy(self.buffer_A)
+                self.buffer_A = np.array([]).reshape(0,6)
 
-                cnt = 0
-                for i in out:
-                    cnt = cnt + 1
-                    self.lostB = self.putB(i,self.lostB)
-                    yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
-                    # FIFO write delay
-                self.frame_count = 0
-                #self.flag = False
-                self.buffer = np.array([]).reshape(0,6)
+                try:
+                    if (self.flag.count == 0):
+                        self.act_buffer_proc.succeed()
+                        self.act_buffer_proc = self.env.event()
+                        # Sends START signal to frame buffer processor
+                        self.frame_count = 0
+                        # Reset frame_count to keep things moving
+                    else:
+                        raise Full('---- Frame Processor Overflow -----')
+                except Full as e:
+                    print ("TIME: %s // %s" % (self.env.now,e.value))
+                    self.env.exit()
 
 
     def putB(self,data,lost):
