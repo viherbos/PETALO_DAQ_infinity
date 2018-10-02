@@ -435,6 +435,7 @@ class L1(object):
     def PreBUFFER_load(self):
         while True:
             frame = yield self.fifoA.get()
+
             yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1a_freq'])
             # FIFO read delay
 
