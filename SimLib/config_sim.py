@@ -27,8 +27,8 @@ class SIM_DATA(object):
                                         'out_file_name':"DAQ_OUT_oneface",
                                         'MC_out_file_name':"DAQ_OUT_oneface",
                                         'time_bin': 5,
-                                        'n_files' : range(6),
-                                        'n_events': 30000},
+                                        'n_files' : range(12),
+                                        'n_events': 55000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
@@ -48,12 +48,12 @@ class SIM_DATA(object):
                                         'TGAIN':1},
 
                         'L1'          :{'L1_outrate'    :2000E6,
-                                        'frame_process' :2500,
-                                        'FIFO_L1a_depth':1280,
+                                        'frame_process' :5000,
+                                        'FIFO_L1a_depth':32,
                                         'FIFO_L1a_freq' :400E6,
-                                        'FIFO_L1b_depth':128,
+                                        'FIFO_L1b_depth':64,
                                         'FIFO_L1b_freq' :400E6,
-                                        'buffer_size'   :640,
+                                        'buffer_size'   :1024,
                                         'n_asics'       :12,
                                         'TE'            :3,
                                         'map_style'     :'striped_3',

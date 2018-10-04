@@ -362,7 +362,7 @@ class L1(object):
         self.lostB          = 0
         self.action1        = env.process(self.PreBUFFER_load())
         self.action2        = env.process(self.L1_outlink())
-        self.process_frames = env.process(self.process_frames())
+        self.process_frames = env.process(self.process_frames_2BUF())
         self.act_buffer_proc = env.event()
         self.flag           = simpy.Resource(self.env,capacity=1)
 
@@ -383,7 +383,7 @@ class L1(object):
         # Frame Statistics
 
 
-    def process_frames(self):
+    def process_frames_2BUF(self):
         while True:
             yield self.act_buffer_proc
             # Wait until act_buffer_proc is triggered
@@ -429,8 +429,10 @@ class L1(object):
                     self.buffer_B = self.buffer_B[cond_not]
 
 
+                # Processor Delay
                 self.print_statsC(len(out))
                 yield self.env.timeout(self.param.P['L1']['frame_process'])
+
 
                 # Write Output Frames to output FIFO
                 cnt = 0
@@ -503,7 +505,8 @@ class L1(object):
     def L1_outlink(self):
         while True:
             msg = yield self.fifoB.get()
-            yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+            n_SIPM = msg['data'][0]
+            yield self.env.timeout(n_SIPM*1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
             # FIFO read delay
 
             n_bits_in_frame = L1_outframe_nbits(msg['data'][0])

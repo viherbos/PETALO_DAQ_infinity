@@ -300,6 +300,7 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(346).transAxes)
+        fig.add_subplot(3,4,6).xaxis.set_major_locator(MaxNLocator(integer=True))
 
         fit(logB[:,0],CG['L1']['FIFO_L1b_depth'])
         fit.plot(axis = fig.add_subplot(345),
@@ -315,6 +316,7 @@ class infinity_graphs(object):
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(345).transAxes)
+        fig.add_subplot(3,4,5).xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
         fit(logC[:,0],range(int(np.max(logC[:,0]))+2))
@@ -501,7 +503,7 @@ class infinity_graphs(object):
 
 
 def main():
-    A = infinity_graphs(["OF_4mm_BUF4096_testC"],
+    A = infinity_graphs(["OF_4mm_BUF640_V3"],
                          "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/")
     A()
     # start = time.time()
