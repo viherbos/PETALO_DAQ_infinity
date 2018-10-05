@@ -19,6 +19,7 @@ from SimLib import sipm_mapping as DAQ
     Configuration Parameters (JSON file):
     'MC_file_name':"full_ring_depth3cm_pitch4mm"
     'MC_out_file_name':"daq_output_IDEAL"
+    'AUTOENCODER_file_name': Weigths and Biasing matrix
     'time_bin': 5
     'n_files' : 5
 """
