@@ -93,7 +93,7 @@ class DAQ_MODEL(object):
                                              columns=self.sensors)
             tof_array = pd.DataFrame( data=self.out_table_tof,
                                              columns=self.sensors)
-            subth_QDC_L1 = pd.DataFrame( data=self.subth_QDC_L1)
+            subth_QDC_L1 = pd.DataFrame( data=self.subth_QDC_L1)self.sensors[0]
             subth_TDC_L1 = pd.DataFrame( data=self.subth_TDC_L1)
             sipm2L1 = pd.DataFrame( data=self.sipmtoL1)
 
@@ -169,6 +169,12 @@ class DAQ_MODEL(object):
             low_limit_tof = high_limit_tof+1
             count_a = 0
 
+            ####################################################################
+            ###                    AUTOENCODER PROCESSING                    ###
+            ####################################################################
+
+
+
 
     def process_table(self):
         self.gamma1_i1 = np.zeros((self.n_events,3),dtype='float32')
@@ -211,12 +217,12 @@ class DAQ_MODEL(object):
             if (self.gamma1_i1[i,:].all() == 0):
                 self.sipm_iter1A[i,0] = 0
             else:
-                self.sipm_iter1A[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma1_i1[i,:]),axis=1))) + 1000
+                self.sipm_iter1A[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma1_i1[i,:]),axis=1))) + self.sensors[0]
 
             if (self.gamma2_i1[i,:].all() == 0):
                 self.sipm_iter1B[i,0] = 0
             else:
-                self.sipm_iter1B[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma2_i1[i,:]),axis=1))) + 1000
+                self.sipm_iter1B[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma2_i1[i,:]),axis=1))) + self.sensors[0]
 
 
 

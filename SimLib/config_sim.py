@@ -24,8 +24,9 @@ class SIM_DATA(object):
                                         'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/",
                                         'file_name': "p_FR_oneface_",
                                         'MC_file_name':"full_ring_iradius15cm_depth3cm_pitch4mm_one_face",
-                                        'out_file_name':"DAQ_OUT_oneface",
-                                        'MC_out_file_name':"DAQ_OUT_oneface",
+                                        'out_file_name':"DAQ_OF4mm",
+                                        'MC_out_file_name':"FASTDAQOUT_OF4mm",
+                                        'AUTOENCODER_file_name':"Rafa_1UP.h5"
                                         'time_bin': 5,
                                         'n_files' : range(12),
                                         'n_events': 55000},
