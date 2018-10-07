@@ -37,7 +37,8 @@ class DAQ_MODEL(object):
         self.TE1      = self.SIM_CONT.data['TOFPET']['TE']
         self.TE2      = self.SIM_CONT.data['L1']['TE']
         self.time_bin = self.SIM_CONT.data['ENVIRONMENT']['time_bin']
-
+        self.autoencoder_file = self.SIM_CONT.data['ENVIRONMENT']['AUTOENCODER_file_name']
+        self.n_rows    = self.SIM_CONT.data['TOPOLOGY']['n_rows']
         # TOPOLOGY
         self.L1, SiPM_I, SiPM_O, topology = DAQ.SiPM_Mapping(self.SIM_CONT.data,
                                                         self.SIM_CONT.data['L1']['map_style'])
@@ -51,6 +52,12 @@ class DAQ_MODEL(object):
                     self.sipmtoL1[l] = L1_count
             L1_count += 1
 
+        self.AE_weigths = np.array( pd.read_hdf(self.autoencoder_file,
+                                                key='weigths'),
+                                                dtype = 'float32')
+        self.AE_bias    = np.array( pd.read_hdf(self.autoencoder_file,
+                                                key='bias'),
+                                                dtype = 'float32')
         self.waves    = np.array([])
         self.tof      = np.array([])
         self.extents  = np.array([])
@@ -58,6 +65,10 @@ class DAQ_MODEL(object):
         self.n_events = 0
         self.out_table = np.array([])
         self.out_table_tof = np.array([])
+
+        self.data_enc = np.array([])
+        self.data_recons = np.array([])
+
         self.sensors_t = np.array([])
         self.gamma1_i1 = np.array([])
         self.gamma2_i1 = np.array([])
@@ -94,6 +105,10 @@ class DAQ_MODEL(object):
                                              columns=self.sensors)
             tof_array = pd.DataFrame( data=self.out_table_tof,
                                              columns=self.sensors)
+            enc_array    = pd.DataFrame( data=self.data_enc)
+            recons_array = pd.DataFrame( data=self.data_recons,
+                                             columns=self.sensors)
+
             subth_QDC_L1 = pd.DataFrame( data=self.subth_QDC_L1)self.sensors[0]
             subth_TDC_L1 = pd.DataFrame( data=self.subth_TDC_L1)
             sipm2L1 = pd.DataFrame( data=self.sipmtoL1)
@@ -112,12 +127,14 @@ class DAQ_MODEL(object):
                                                              axis=1),
                                         columns=['x1','y1','z1','x2','y2','z2','SiPMA','SiPMB'])
             store.put('iter1',iter1_array)
-            store.put('MC',panel_array)
+            store.put('MC_TE',panel_array)
             store.put('MC_tof',tof_array)
             store.put('sensors',sensors_array)
             store.put('sipm2L1',sipm2L1)
             store.put('subth_QDC_L1',subth_QDC_L1)
             store.put('subth_TDC_L1',subth_TDC_L1)
+            store.put('MC_encoded',enc_array)
+            store.put('MC_recons',recons_array)
             store.close()
 
 
@@ -174,6 +191,15 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
+            for L1 in self.L1:
+                # L1 NUMBER
+                L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
+                for asic in L1;
+                    L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),order='F')))
+                # Data PROCESSING
+                data = self.out_table[i,L1_SiPM]
+                data_enc = np.dot(data,self.AE_weigths[self.L1.index(L1)])
+                # Enc_data composition ????
 
 
 
