@@ -21,22 +21,22 @@ class SIM_DATA(object):
             # L1 output data frame = QDC[10] + TDC[10] + SiPM[20] = 40 bits
             self.data= {'ENVIRONMENT'  :{'ch_rate'     :7.1E6,
                                         'temperature' :300,
-                                        'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/",
-                                        'file_name': "p_FR_oneface_",
-                                        'MC_file_name':"full_ring_iradius15cm_depth3cm_pitch4mm_one_face",
-                                        'out_file_name':"DAQ_OF4mm",
-                                        'MC_out_file_name':"FASTDAQOUT_OF4mm",
+                                        'path_to_files': "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/",
+                                        'file_name': "p_OF_6mm",
+                                        'MC_file_name':"full_ring_iradius15cm_depth3cm_pitch6mm_one_face",
+                                        'out_file_name':"DAQ_OF6mm",
+                                        'MC_out_file_name':"FASTDAQOUT_OF6mm",
                                         'AUTOENCODER_file_name':"Rafa_1UP.h5",
                                         'time_bin': 5,
-                                        'n_files' : range(12),
-                                        'n_events': 55000},
+                                        'n_files' : range(1),
+                                        'n_events': 1000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
                         'TOPOLOGY'    :{'radius_int'   :150,
                                         'radius_ext'   :180,
                                         'sipm_int_row' :0,
-                                        'sipm_ext_row' :282,
+                                        'sipm_ext_row' :188,
                                         'n_rows'       :16},
 
                         'TOFPET'      :{'n_channels'  :64,
@@ -55,14 +55,14 @@ class SIM_DATA(object):
                                         'FIFO_L1b_depth':64,
                                         'FIFO_L1b_freq' :400E6,
                                         'buffer_size'   :1024,
-                                        'n_asics'       :12,
+                                        'n_asics'       :10,
                                         'TE'            :3,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
-                                        'L1_mapping_O'  :[11,12,12,12,12,12]
+                                        'L1_mapping_O'  :[9,9,9,10,10]
                                         }
                        }
-
+# 'L1_mapping_O'  :[11,12,12,12,12,12]
 # 'L1_mapping_I'  :[10,10,10,10],
 # 'L1_mapping_O'  :[10,10,11,10,10]}
 # 'L1_mapping_I'  :[5,5,5,5,5,5,5,5],
@@ -92,7 +92,8 @@ class SIM_DATA(object):
 
 if __name__ == '__main__':
 
-    filename = "OF_4mm_BUF640_V3"
-    SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/"+filename+".json",
+    #filename = "OF_4mm_BUF640_V3"
+    filename = "test"
+    SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()

@@ -38,13 +38,17 @@ class DAQ_MODEL(object):
         self.TE2      = self.SIM_CONT.data['L1']['TE']
         self.time_bin = self.SIM_CONT.data['ENVIRONMENT']['time_bin']
         self.autoencoder_file = self.SIM_CONT.data['ENVIRONMENT']['AUTOENCODER_file_name']
-        self.n_rows    = self.SIM_CONT.data['TOPOLOGY']['n_rows']
+        self.n_rows   = self.SIM_CONT.data['TOPOLOGY']['n_rows']
+        self.n_L1     = len(self.SIM_CONT.data['L1']['L1_mapping_I'])+\
+                        len(self.SIM_CONT.data['L1']['L1_mapping_O'])
         # TOPOLOGY
         self.L1, SiPM_I, SiPM_O, topology = DAQ.SiPM_Mapping(self.SIM_CONT.data,
                                                         self.SIM_CONT.data['L1']['map_style'])
 
         self.sipmtoL1 = np.zeros(topology['n_sipms'],dtype='int32')
+
         # Vector with SiPM assignment into L1
+        # Number of SiPMs per L1
         L1_count = 0
         for i in self.L1:
             for j in i:
@@ -52,12 +56,41 @@ class DAQ_MODEL(object):
                     self.sipmtoL1[l] = L1_count
             L1_count += 1
 
-        self.AE_weigths = np.array( pd.read_hdf(self.autoencoder_file,
-                                                key='weigths'),
-                                                dtype = 'float32')
-        self.AE_bias    = np.array( pd.read_hdf(self.autoencoder_file,
-                                                key='bias'),
-                                                dtype = 'float32')
+
+        # self.AE_weigths = np.array( pd.read_hdf(self.autoencoder_file,
+        #                                         key='weigths_A'),
+        #                                         dtype = 'float32')
+        # self.AE_bias    = np.array( pd.read_hdf(self.autoencoder_file,
+        #                                         key='bias_A'),
+        #                                         dtype = 'float32')
+        # self.EA_weigths = np.array( pd.read_hdf(self.autoencoder_file,
+        #                                         key='weigths_B'),
+        #                                         dtype = 'float32')
+        # self.EA_bias    = np.array( pd.read_hdf(self.autoencoder_file,
+        #                                         key='bias_B'),
+        #                                         dtype = 'float32')
+
+        # Eye Encoding Matrixes for debugging purposes
+        self.AE_weigths = []
+        self.AE_bias    = []
+        self.AE_weigths.append(np.eye(44)); self.AE_bias.append(np.zeros((16,44)))
+        self.AE_weigths.append(np.eye(48)); self.AE_bias.append(np.zeros((16,48)))
+        self.AE_weigths.append(np.eye(48)); self.AE_bias.append(np.zeros((16,48)))
+        self.AE_weigths.append(np.eye(48)); self.AE_bias.append(np.zeros((16,48)))
+        self.AE_weigths.append(np.eye(48)); self.AE_bias.append(np.zeros((16,48)))
+        self.AE_weigths.append(np.eye(46)); self.AE_bias.append(np.zeros((16,46)))
+        self.EA_weigths = []
+        self.EA_bias    = []
+        self.EA_weigths.append(np.eye(44)); self.EA_bias.append(np.zeros((16,44)))
+        self.EA_weigths.append(np.eye(48)); self.EA_bias.append(np.zeros((16,48)))
+        self.EA_weigths.append(np.eye(48)); self.EA_bias.append(np.zeros((16,48)))
+        self.EA_weigths.append(np.eye(48)); self.EA_bias.append(np.zeros((16,48)))
+        self.EA_weigths.append(np.eye(48)); self.EA_bias.append(np.zeros((16,48)))
+        self.EA_weigths.append(np.eye(46)); self.EA_bias.append(np.zeros((16,46)))
+
+
+
+
         self.waves    = np.array([])
         self.tof      = np.array([])
         self.extents  = np.array([])
@@ -85,7 +118,7 @@ class DAQ_MODEL(object):
                             dtype = 'int32')
         self.extents = np.array( pd.read_hdf(self.in_file,key='MC/extents'),
                             dtype = 'int32')
-        self.n_events = self.extents.shape[0]
+        self.n_events = 100 #self.extents.shape[0]
 
         self.sensors_t = np.array( pd.read_hdf(self.in_file,key='MC/sensor_positions'),
                             dtype = 'int32')
@@ -109,7 +142,7 @@ class DAQ_MODEL(object):
             recons_array = pd.DataFrame( data=self.data_recons,
                                              columns=self.sensors)
 
-            subth_QDC_L1 = pd.DataFrame( data=self.subth_QDC_L1)self.sensors[0]
+            subth_QDC_L1 = pd.DataFrame( data=self.subth_QDC_L1)
             subth_TDC_L1 = pd.DataFrame( data=self.subth_TDC_L1)
             sipm2L1 = pd.DataFrame( data=self.sipmtoL1)
 
@@ -145,10 +178,13 @@ class DAQ_MODEL(object):
         self.out_table_tof  = np.zeros((self.n_events,n_sensors),dtype='int32')
         self.subth_QDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.subth_TDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
+        self.data_recons    = np.zeros((self.n_events,n_sensors),dtype='int32')
+
         low_limit = 0
         low_limit_tof = 0
         count = 0
         count_a = 0
+
 
         for i in range(0,self.n_events):
             high_limit      = self.extents[i,1]
@@ -156,6 +192,7 @@ class DAQ_MODEL(object):
             event_wave = self.waves[low_limit:high_limit+1,:]
             event_tof  = self.tof[low_limit_tof:high_limit_tof+1,:]
 
+            # Apply filtering with TE1 and TE2 thresholds
             for j in self.sensors:
                 condition   = (event_wave[:,0] == j)
                 condition_tof = (event_tof[:,0] == -j)
@@ -180,7 +217,6 @@ class DAQ_MODEL(object):
                     else:
                         self.subth_TDC_L1[i,L1_index] = np.amin(np.array([sensor_data_tof,
                                                                     self.subth_TDC_L1[i,L1_index]]))
-
                 count_a += 1
 
             low_limit = high_limit+1
@@ -191,15 +227,60 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
+            data_enc_event = np.array([])
+
             for L1 in self.L1:
                 # L1 NUMBER
                 L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-                for asic in L1;
-                    L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),order='F')))
+                #data_enc = np.array([],dtype='int').reshape(???,???)
+                for asic in L1:
+                    L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
+                                        order='F')))
                 # Data PROCESSING
-                data = self.out_table[i,L1_SiPM]
-                data_enc = np.dot(data,self.AE_weigths[self.L1.index(L1)])
-                # Enc_data composition ????
+                data         = self.out_table[i,L1_SiPM]
+                data_enc_aux = np.dot(data,self.AE_weigths[self.L1.index(L1)]) + \
+                               self.AE_bias[self.L1.index(L1)]
+                # Compressed data has different dimensions. Fold to 1D and unfold later
+                # with extra information stored in h5 (see L1_comp)
+                data_enc_aux = data_enc_aux.reshape(-1)
+                data_enc_event = np.hstack((data_enc_event,data_enc_aux))
+
+            # Store compressed information for every event
+            if (i == 0):
+                self.data_enc = self.data_enc.reshape(0,data_enc_event.shape[0])
+            self.data_enc = np.vstack((self.data_enc,data_enc_event))
+
+
+
+            ####################################################################
+            ###            Event reconstruction after encoding               ###
+            ####################################################################
+            data_recons_event = np.array([])
+            index_2 = 0
+
+            for L1 in self.L1:
+                index_1 = index_2
+
+                # Build L1_SiPM matrix
+                L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
+                for asic in L1:
+                    L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
+                                        order='F')))
+
+                L1_size_compressed = L1_SiPM.shape[0] * \
+                                     self.AE_weigths[self.L1.index(L1)].shape[1]
+
+                index_2 = index_1 + L1_size_compressed
+                data_recons_event = data_enc_event[index_1:index_2]
+                data_recons_event = data_recons_event.reshape((L1_SiPM.shape[0],
+                                                            self.AE_weigths[self.L1.index(L1)].shape[1]))
+
+                data_recons_event = np.dot(data_recons_event,self.EA_weigths[self.L1.index(L1)]) + \
+                                    self.EA_bias[self.L1.index(L1)]
+
+                for sipm_id in L1_SiPM:
+                    # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
+                    self.data_recons[i,sipm_id] = data_recons_event[np.where(L1_SiPM==sipm_id)]
 
 
 
@@ -267,7 +348,7 @@ def DAQ_out(file_number,path,jsonfilename):
 if __name__ == "__main__":
 
     kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/",
-             'jsonfilename' :"OF_4mm_min"}
+             'jsonfilename' :"debug"}
     SIM_JSON = CFG.SIM_DATA(filename=kargs['path']+kargs['jsonfilename']+".json",read=True)
 
     TRANS_map = partial(DAQ_out, **kargs)
