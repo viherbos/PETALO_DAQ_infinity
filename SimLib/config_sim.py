@@ -29,7 +29,7 @@ class SIM_DATA(object):
                                         'AUTOENCODER_file_name':"Rafa_1UP.h5",
                                         'time_bin': 5,
                                         'n_files' : range(1),
-                                        'n_events': 1000},
+                                        'n_events': 5000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 

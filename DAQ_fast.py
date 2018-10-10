@@ -90,7 +90,7 @@ class DAQ_MODEL(object):
                             dtype = 'int32')
         self.extents = np.array( pd.read_hdf(self.in_file,key='MC/extents'),
                             dtype = 'int32')
-        self.n_events = 100 #self.extents.shape[0]
+        self.n_events = self.extents.shape[0]
 
         self.sensors_t = np.array( pd.read_hdf(self.in_file,key='MC/sensor_positions'),
                             dtype = 'int32')
