@@ -15,6 +15,60 @@ import fit_library
 import config_sim as CFG
 import DAQ_infinity as DAQ
 from matplotlib.ticker import MaxNLocator
+import scipy.io as SCIO
+
+
+class ENCODER_MAT2HF(object):
+    def __init__(self,path,in_file,out_file,json_file):
+        self.path     = path
+        self.in_file  = in_file
+        self.out_file = out_file
+        SIM_CONT = CFG.SIM_DATA( path + json_file + ".json" , read=True)
+
+    def read(self):
+        datos_matlab = SCIO.loadmat( self.path + self.in_file)
+        self.encoder_weights_A = datos_matlab.get('encoder_weights_A').transpose()
+        self.encoder_biases_A  = datos_matlab.get('encoder_biases_A').transpose()[0]
+        self.decoder_weights_A = datos_matlab.get('decoder_weights_A').transpose()
+        self.decoder_biases_A  = datos_matlab.get('decoder_biases_A').transpose()[0]
+        self.min_A             = datos_matlab.get('minA')
+        self.max_A             = datos_matlab.get('maxA')
+        self.encoder_weights_B = datos_matlab.get('encoder_weights_B').transpose()
+        self.encoder_biases_B  = datos_matlab.get('encoder_biases_B').transpose()[0]
+        self.decoder_weights_B = datos_matlab.get('decoder_weights_B').transpose()
+        self.decoder_biases_B  = datos_matlab.get('decoder_biases_B').transpose()[0]
+        self.min_B             = datos_matlab.get('minB')
+        self.max_B             = datos_matlab.get('maxB')
+
+    def write(self):
+        with pd.HDFStore(self.path + self.out_file) as store:
+            EWA  = pd.DataFrame( data=self.encoder_weights_A)
+            EBA  = pd.DataFrame( data=self.encoder_biases_A)
+            DWA  = pd.DataFrame( data=self.decoder_weights_A)
+            DBA  = pd.DataFrame( data=self.decoder_biases_A)
+            minA = pd.DataFrame( data=self.min_A)
+            maxA = pd.DataFrame( data=self.max_A)
+            EWB  = pd.DataFrame( data=self.encoder_weights_B)
+            EBB  = pd.DataFrame( data=self.encoder_biases_B)
+            DWB  = pd.DataFrame( data=self.decoder_weights_B)
+            DBB  = pd.DataFrame( data=self.decoder_biases_B)
+            minB = pd.DataFrame( data=self.min_B)
+            maxB = pd.DataFrame( data=self.max_B)
+            store.put('ENC_weights_A',EWA)
+            store.put('ENC_bias_A',EBA)
+            store.put('DEC_weights_A',DWA)
+            store.put('DEC_bias_A',DBA)
+            store.put('minA',minA)
+            store.put('maxA',maxA)
+            store.put('ENC_weights_B',EWB)
+            store.put('ENC_bias_B',EBB)
+            store.put('DEC_weights_B',DWB)
+            store.put('DEC_bias_B',DBB)
+            store.put('minB',minB)
+            store.put('maxB',maxB)
+
+            store.close()
+
 
 
 class DAQ_IO(object):
