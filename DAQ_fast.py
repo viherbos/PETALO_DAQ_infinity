@@ -59,7 +59,6 @@ class DAQ_MODEL(object):
         # AUTOENCODER DATA READING (Trick to read easily and keep names)
         self.COMP={}
         keys      = pd.HDFStore(self.path + self.autoencoder_file).keys()
-        print
         self.COMP = {i[1:]:np.array(pd.read_hdf(self.path + self.autoencoder_file,key=i)) for i in keys}
 
         self.waves    = np.array([])
