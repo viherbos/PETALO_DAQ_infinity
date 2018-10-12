@@ -26,7 +26,7 @@ from SimLib import sipm_mapping as DAQ
 
 
 class DAQ_MODEL(object):
-    def __init__(self,path,jsonfilename,file_number):
+    def __init__(self,path,jsonfilename,file_number,encoder_data):
         self.SIM_CONT = CFG.SIM_DATA(filename=path+jsonfilename+".json",read=True)
         self.path     = self.SIM_CONT.data['ENVIRONMENT']['path_to_files']
         self.in_file  = self.SIM_CONT.data['ENVIRONMENT']['MC_file_name']+"."+\
@@ -37,7 +37,6 @@ class DAQ_MODEL(object):
         self.TE1      = self.SIM_CONT.data['TOFPET']['TE']
         self.TE2      = self.SIM_CONT.data['L1']['TE']
         self.time_bin = self.SIM_CONT.data['ENVIRONMENT']['time_bin']
-        self.autoencoder_file = self.SIM_CONT.data['ENVIRONMENT']['AUTOENCODER_file_name']
         self.n_rows   = self.SIM_CONT.data['TOPOLOGY']['n_rows']
         self.n_L1     = len(self.SIM_CONT.data['L1']['L1_mapping_I'])+\
                         len(self.SIM_CONT.data['L1']['L1_mapping_O'])
@@ -56,10 +55,8 @@ class DAQ_MODEL(object):
                     self.sipmtoL1[l] = L1_count
             L1_count += 1
 
-        # AUTOENCODER DATA READING (Trick to read easily and keep names)
-        self.COMP={}
-        keys      = pd.HDFStore(self.path + self.autoencoder_file).keys()
-        self.COMP = {i[1:]:np.array(pd.read_hdf(self.path + self.autoencoder_file,key=i)) for i in keys}
+
+        self.COMP = encoder_data
 
         self.waves    = np.array([])
         self.tof      = np.array([])
@@ -325,9 +322,9 @@ class DAQ_MODEL(object):
 
 
 
-def DAQ_out(file_number,path,jsonfilename):
+def DAQ_out(file_number,path,jsonfilename,encoder_data):
 
-    TEST_c = DAQ_MODEL(path,jsonfilename,file_number)
+    TEST_c = DAQ_MODEL(path,jsonfilename,file_number,encoder_data)
     TEST_c.read()
     TEST_c.process()
     TEST_c.process_table()
@@ -338,9 +335,21 @@ def DAQ_out(file_number,path,jsonfilename):
 
 if __name__ == "__main__":
 
-    kargs = {'path'         :"/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/",
-             'jsonfilename' :"test"}
-    SIM_JSON = CFG.SIM_DATA(filename=kargs['path']+kargs['jsonfilename']+".json",read=True)
+    json_file = "test"
+    path      = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/"
+
+    SIM_JSON = CFG.SIM_DATA(filename = path + json_file +".json",read=True)
+    encoder_file = SIM_JSON.data['ENVIRONMENT']['AUTOENCODER_file_name']
+
+    # AUTOENCODER DATA READING (Trick to read easily and keep names)
+    COMP={}
+    with pd.HDFStore(path + encoder_file) as store:
+        keys = store.keys()
+    COMP = {i[1:]:np.array(pd.read_hdf(path + encoder_file,key=i[1:])) for i in keys}
+
+    kargs = {'path'         :path,
+             'jsonfilename' :json_file,
+             'encoder_data' :COMP}
 
     TRANS_map = partial(DAQ_out, **kargs)
     # Multiprocess Work
