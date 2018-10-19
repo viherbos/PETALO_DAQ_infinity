@@ -86,7 +86,7 @@ class DAQ_MODEL(object):
                             dtype = 'int32')
         self.extents = np.array( pd.read_hdf(self.in_file,key='MC/extents'),
                             dtype = 'int32')
-        self.n_events = self.extents.shape[0]
+        self.n_events = 100 #self.extents.shape[0]
 
         self.sensors_t = np.array( pd.read_hdf(self.in_file,key='MC/sensor_positions'),
                             dtype = 'int32')
@@ -221,6 +221,8 @@ class DAQ_MODEL(object):
                            (self.COMP['maxB'].transpose()-self.COMP['minB'].transpose())
                     data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_B']) + self.COMP['ENC_bias_B'].T)
 
+                cond_TENC = (data_enc_aux > 0.25)
+                data_enc_aux = data_enc_aux*cond_TENC
 
                 data_enc_event = np.hstack((data_enc_event,data_enc_aux))
 
@@ -269,6 +271,9 @@ class DAQ_MODEL(object):
                 for sipm_id in L1_SiPM:
                     # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
                     self.data_recons[i,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
+
+                # We apply the same threshold as for original data
+                self.data_recons = (self.data_recons > self.TE2) * self.data_recons
 
 
 

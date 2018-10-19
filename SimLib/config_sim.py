@@ -25,7 +25,7 @@ class SIM_DATA(object):
                                         'file_name': "p_OF_6mm",
                                         'MC_file_name':"full_ring_iradius15cm_depth3cm_pitch6mm_one_face",
                                         'out_file_name':"DAQ_OF6mm",
-                                        'MC_out_file_name':"FASTDAQOUT_OF6mm",
+                                        'MC_out_file_name':"FASTDAQOUT_OF6mm_TEST",
                                         'AUTOENCODER_file_name':"Rafa_1UP.h5",
                                         'time_bin': 5,
                                         'n_files' : range(1),
