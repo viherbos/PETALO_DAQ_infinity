@@ -59,7 +59,8 @@ class SIM_DATA(object):
                                         'TE'            :3,
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
-                                        'L1_mapping_O'  :[9,9,9,10,10]
+                                        'L1_mapping_O'  :[9,9,9,10,10],
+                                        'enc_out_len'   :1350
                                         }
                        }
 # 'L1_mapping_O'  :[11,12,12,12,12,12]

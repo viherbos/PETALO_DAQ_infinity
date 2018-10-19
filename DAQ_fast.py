@@ -81,11 +81,6 @@ class DAQ_MODEL(object):
     def read_files(self):
 
         os.chdir(self.path)
-        self.sensors = self.sensors_t[:,0]
-        self.sensors_order = np.argsort(self.sensors)
-        self.sensors = self.sensors[self.sensors_order]
-        self.h5file = tb.open_file(self.in_file, mode="r")
-        self.table = self.h5file.root.MC.particles
         self.waves   = np.array( pd.read_hdf(self.in_file,key='MC/waveforms'),
                             dtype = 'int32')
         self.tof     = np.array( pd.read_hdf(self.in_file,key='MC/tof_waveforms'),
@@ -94,13 +89,23 @@ class DAQ_MODEL(object):
                             dtype = 'int32')
         self.sensors_t = np.array( pd.read_hdf(self.in_file,key='MC/sensor_positions'),
                             dtype = 'int32')
-        self.events_infile = TEST_c.extents.shape[0]
+
+        self.sensors = self.sensors_t[:,0]
+        self.sensors_order = np.argsort(self.sensors)
+        self.sensors = self.sensors[self.sensors_order]
+        self.h5file = tb.open_file(self.in_file, mode="r")
+        self.table = self.h5file.root.MC.particles
+
+        self.events_infile  = self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
         self.out_table_B     = np.array([]).reshape(0,self.n_sensors)
         self.out_table_tof_B = np.array([]).reshape(0,self.n_sensors)
         self.data_recons_B   = np.array([]).reshape(0,self.n_sensors)
+        self.data_enc_B   = np.array([]).reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
+        self.subth_QDC_L1_B  = np.array([]).reshape(0,len(self.L1))
+        self.subth_TDC_L1_B  = np.array([]).reshape(0,len(self.L1))
 
 
     def read_data(self,event_array):
@@ -113,6 +118,7 @@ class DAQ_MODEL(object):
         self.subth_QDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.subth_TDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.data_recons    = np.zeros((self.n_events,self.n_sensors),dtype='float')
+        self.data_enc       = np.array([]).reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
 
 
     def write(self,iter=False):
@@ -155,7 +161,7 @@ class DAQ_MODEL(object):
             store.close()
 
 
-    def encoder(self,event):
+    def encoder(self,event,first):
 
         def sigmoid(x, derivative=False):
             return x*(1-x) if derivative else 1/(1+np.exp(-x))
@@ -170,7 +176,7 @@ class DAQ_MODEL(object):
                 L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
                                     order='F')))
             # Data PROCESSING
-            data = self.out_table[i,L1_SiPM.T]
+            data = self.out_table[i-first,L1_SiPM.T]
             data = data.reshape(1,-1)[0]
 
 
@@ -189,8 +195,6 @@ class DAQ_MODEL(object):
             data_enc_event = np.hstack((data_enc_event,data_enc_aux))
 
         # Store compressed information for every event
-        if (i == 0):
-            self.data_enc = self.data_enc.reshape(0,data_enc_event.shape[1])
         self.data_enc = np.vstack((self.data_enc,data_enc_event))
 
         ####################################################################
@@ -211,7 +215,7 @@ class DAQ_MODEL(object):
             if (L1_SiPM.shape[1]==(self.COMP['DEC_weights_A'].shape[1]//self.n_rows)):
                 L1_size_compressed = self.COMP['DEC_weights_A'].shape[0]
                 index_2 = index_1 + L1_size_compressed
-                data_recons_event = self.data_enc[i,index_1:index_2]
+                data_recons_event = self.data_enc[i-first,index_1:index_2]
                 recons_event = sigmoid(np.dot(data_recons_event,self.COMP['DEC_weights_A']) + self.COMP['DEC_bias_A'].T)
                 recons_event = recons_event*(self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())\
                                + self.COMP['minA'].transpose()
@@ -220,7 +224,7 @@ class DAQ_MODEL(object):
             else:
                 L1_size_compressed = self.COMP['DEC_weights_B'].shape[0]
                 index_2 = index_1 + L1_size_compressed
-                data_recons_event = self.data_enc[i,index_1:index_2]
+                data_recons_event = self.data_enc[i-first,index_1:index_2]
                 recons_event = sigmoid(np.dot(data_recons_event,self.COMP['DEC_weights_B']) + self.COMP['DEC_bias_B'].T)
                 recons_event = recons_event*(self.COMP['maxB'].transpose()-self.COMP['minB'].transpose())\
                                + self.COMP['minB'].transpose()
@@ -230,7 +234,7 @@ class DAQ_MODEL(object):
 
             for sipm_id in L1_SiPM:
                 # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
-                self.data_recons[i,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
+                self.data_recons[i-first,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
 
             # We apply the same threshold as for original data
             self.data_recons = (self.data_recons > self.TE2) * self.data_recons
@@ -246,7 +250,9 @@ class DAQ_MODEL(object):
         count = 0
         count_a = 0
 
+        first = event_range[0]
         for i in event_range: #range(0,800): #self.n_events):
+
             high_limit      = self.extents[i,1]
             high_limit_tof  = self.extents[i,2]
             event_wave = self.waves[low_limit:high_limit+1,:]
@@ -267,16 +273,16 @@ class DAQ_MODEL(object):
                     sensor_data_tof = np.amin(event_tof[condition_tof,1])*self.time_bin
 
                 if (sensor_data > self.TE2):
-                    self.out_table[i,count_a]     = sensor_data
-                    self.out_table_tof[i,count_a] = sensor_data_tof
+                    self.out_table[i-first,count_a]     = sensor_data
+                    self.out_table_tof[i-first,count_a] = sensor_data_tof
 
                 if ((sensor_data > self.TE1) and (sensor_data <= self.TE2)):
-                    self.subth_QDC_L1[i,L1_index] = self.subth_QDC_L1[i,L1_index] + sensor_data
-                    if self.subth_TDC_L1[i,L1_index]==0:
-                        self.subth_TDC_L1[i,L1_index] = sensor_data_tof
+                    self.subth_QDC_L1[i-first,L1_index] = self.subth_QDC_L1[i-first,L1_index] + sensor_data
+                    if self.subth_TDC_L1[i-first,L1_index]==0:
+                        self.subth_TDC_L1[i-first,L1_index] = sensor_data_tof
                     else:
-                        self.subth_TDC_L1[i,L1_index] = np.amin(np.array([sensor_data_tof,
-                                                                    self.subth_TDC_L1[i,L1_index]]))
+                        self.subth_TDC_L1[i-first,L1_index] = np.amin(np.array([sensor_data_tof,
+                                                                    self.subth_TDC_L1[i-first,L1_index]]))
                 count_a += 1
 
             low_limit = high_limit+1
@@ -287,7 +293,7 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
-            self.encoder(i)
+            self.encoder(i,first)
 
 
 
