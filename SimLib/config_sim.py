@@ -28,13 +28,13 @@ class SIM_DATA(object):
                                         'MC_out_file_name':"FASTDAQOUT_OF6mm_TEST",
                                         'AUTOENCODER_file_name':"Rafa_1UP.h5",
                                         'time_bin': 5,
-                                        'n_files' : range(1),
+                                        'n_files' : range(4),
                                         'n_events': 5000},
 
                         'SIPM'        :{'size'        :[1,3,3]},
 
-                        'TOPOLOGY'    :{'radius_int'   :150,
-                                        'radius_ext'   :180,
+                        'TOPOLOGY'    :{'radius_int'   :0,
+                                        'radius_ext'   :161,
                                         'sipm_int_row' :0,
                                         'sipm_ext_row' :188,
                                         'n_rows'       :16},
@@ -76,7 +76,7 @@ class SIM_DATA(object):
         try:
             with open(writeName,'w') as outfile:
                 json.dump(self.data, outfile, indent=4, sort_keys=False)
-                print self.data
+                #print self.data
         except IOError as e:
             print(e)
 
@@ -84,7 +84,7 @@ class SIM_DATA(object):
         try:
             with open(self.filename,'r') as infile:
                 self.data = json.load(infile)
-                print self.data
+                #print self.data
         except IOError as e:
             print(e)
 
