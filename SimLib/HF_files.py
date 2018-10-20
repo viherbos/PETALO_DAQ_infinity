@@ -32,14 +32,14 @@ class ENCODER_MAT2HF(object):
         self.encoder_biases_A  = datos_matlab.get('encoder_biases_A').transpose()[0]
         self.decoder_weights_A = datos_matlab.get('decoder_weights_A').transpose()
         self.decoder_biases_A  = datos_matlab.get('decoder_biases_A').transpose()[0]
-        self.min_A             = datos_matlab.get('minA')
-        self.max_A             = datos_matlab.get('maxA')
-        self.encoder_weights_B = datos_matlab.get('encoder_weights_B').transpose()
-        self.encoder_biases_B  = datos_matlab.get('encoder_biases_B').transpose()[0]
-        self.decoder_weights_B = datos_matlab.get('decoder_weights_B').transpose()
-        self.decoder_biases_B  = datos_matlab.get('decoder_biases_B').transpose()[0]
-        self.min_B             = datos_matlab.get('minB')
-        self.max_B             = datos_matlab.get('maxB')
+        # self.min_A             = datos_matlab.get('minA')
+        # self.max_A             = datos_matlab.get('maxA')
+        # self.encoder_weights_B = datos_matlab.get('encoder_weights_B').transpose()
+        # self.encoder_biases_B  = datos_matlab.get('encoder_biases_B').transpose()[0]
+        # self.decoder_weights_B = datos_matlab.get('decoder_weights_B').transpose()
+        # self.decoder_biases_B  = datos_matlab.get('decoder_biases_B').transpose()[0]
+        # self.min_B             = datos_matlab.get('minB')
+        # self.max_B             = datos_matlab.get('maxB')
 
     def write(self):
         with pd.HDFStore(self.path + self.out_file) as store:
@@ -47,26 +47,26 @@ class ENCODER_MAT2HF(object):
             EBA  = pd.DataFrame( data=self.encoder_biases_A)
             DWA  = pd.DataFrame( data=self.decoder_weights_A)
             DBA  = pd.DataFrame( data=self.decoder_biases_A)
-            minA = pd.DataFrame( data=self.min_A)
-            maxA = pd.DataFrame( data=self.max_A)
-            EWB  = pd.DataFrame( data=self.encoder_weights_B)
-            EBB  = pd.DataFrame( data=self.encoder_biases_B)
-            DWB  = pd.DataFrame( data=self.decoder_weights_B)
-            DBB  = pd.DataFrame( data=self.decoder_biases_B)
-            minB = pd.DataFrame( data=self.min_B)
-            maxB = pd.DataFrame( data=self.max_B)
+            # minA = pd.DataFrame( data=self.min_A)
+            # maxA = pd.DataFrame( data=self.max_A)
+            # EWB  = pd.DataFrame( data=self.encoder_weights_B)
+            # EBB  = pd.DataFrame( data=self.encoder_biases_B)
+            # DWB  = pd.DataFrame( data=self.decoder_weights_B)
+            # DBB  = pd.DataFrame( data=self.decoder_biases_B)
+            # minB = pd.DataFrame( data=self.min_B)
+            # maxB = pd.DataFrame( data=self.max_B)
             store.put('ENC_weights_A',EWA)
             store.put('ENC_bias_A',EBA)
             store.put('DEC_weights_A',DWA)
             store.put('DEC_bias_A',DBA)
-            store.put('minA',minA)
-            store.put('maxA',maxA)
-            store.put('ENC_weights_B',EWB)
-            store.put('ENC_bias_B',EBB)
-            store.put('DEC_weights_B',DWB)
-            store.put('DEC_bias_B',DBB)
-            store.put('minB',minB)
-            store.put('maxB',maxB)
+            # store.put('minA',minA)
+            # store.put('maxA',maxA)
+            # store.put('ENC_weights_B',EWB)
+            # store.put('ENC_bias_B',EBB)
+            # store.put('DEC_weights_B',DWB)
+            # store.put('DEC_bias_B',DBB)
+            # store.put('minB',minB)
+            # store.put('maxB',maxB)
 
             store.close()
 
@@ -705,21 +705,21 @@ class encoder_graphs(object):
         enco_np = np.array([np.array(list(enco_array[i].values()),dtype=float) for i in range(len(enco_array))])
         #'sigma_comb2'|'sigma_comb1'|'phi_std1'|'phi_std2'|'phi_mean1'|'phi_mean2'|'z_mean1'|'z_mean2'|'z_std2'|'z_std1'
 
-        Error = np.sqrt(np.abs(orig_np**2-enco_np**2))
+        Error = orig_np-enco_np
         z_m_err   = np.concatenate((Error[:,6],Error[:,7]))
         phi_m_err = np.concatenate((Error[:,4],Error[:,5]))
         phi_s_err = np.concatenate((Error[:,2],Error[:,3]))
         z_s_err   = np.concatenate((Error[:,8],Error[:,9]))
 
-        z_m_err   = z_m_err[z_m_err>0]
-        phi_m_err = phi_m_err[(phi_m_err>0) * (phi_m_err<0.1)]*radius
+        z_m_err   = z_m_err[(z_m_err>-10) * (z_m_err<10) * (z_m_err!=0)]
+        phi_m_err = phi_m_err[(phi_m_err>-0.025) * (phi_m_err<0.025) * (phi_m_err!=0)]*radius
         # Filter to avoid most of "close to pi" errors
-        phi_s_err = phi_s_err[(phi_s_err>0) * phi_s_err<10]
-        z_s_err   = z_s_err[z_s_err>0 ]
+        phi_s_err = phi_s_err[(phi_s_err>-10) * (phi_s_err<10) * (phi_s_err!=0)]
+        z_s_err   = z_s_err[(z_s_err>-10) * (z_s_err<10)* (z_s_err!=0)]
 
 
         # Now the plotting stuff
-        err_fit = fit_library.gauss_fit()
+        err_fit = fit_library.GND_fit()
         fig = plt.figure(figsize=(10,10))
         err_fit(z_m_err,'sqrt')
         err_fit.plot(axis = fig.add_subplot(221),
@@ -727,19 +727,19 @@ class encoder_graphs(object):
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
-        err_fit(phi_m_err,20)
+        err_fit(phi_m_err,'sqrt')
         err_fit.plot(axis = fig.add_subplot(222),
                         title = "PHI mean ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
-        err_fit(z_s_err,20)
+        err_fit(z_s_err,'sqrt')
         err_fit.plot(axis = fig.add_subplot(223),
                         title = "Z sigma ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
-        err_fit(phi_s_err,20)
+        err_fit(phi_s_err,'sqrt')
         err_fit.plot(axis = fig.add_subplot(224),
                         title = "PHI sigma ERROR",
                         xlabel = "mm",
@@ -767,9 +767,15 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = encoder_graphs("test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/")
-    A(roi_size=32,roi_height=16)
+    # A = encoder_graphs("test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/")
+    # A(roi_size=32,roi_height=16)
 
+    A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
+                          in_file = "compresores_pitch5mm_rad161mm_1_medio_ver1_export.mat",
+                          out_file = "Rafa_2UP.h5",
+                          json_file = "Encoder_Test")
+    A.read()
+    A.write()
 
 if __name__ == "__main__":
     main()
