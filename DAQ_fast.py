@@ -96,7 +96,7 @@ class DAQ_MODEL(object):
         self.h5file = tb.open_file(self.in_file, mode="r")
         self.table = self.h5file.root.MC.particles
 
-        self.events_infile  = 100 #self.extents.shape[0]
+        self.events_infile  = 1000 #self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
@@ -241,7 +241,41 @@ class DAQ_MODEL(object):
 
 
 
-    def encoder5mm(self,event,first):
+    def enc_offset(self):
+
+        def sigmoid(x, derivative=False):
+            return x*(1-x) if derivative else 1/(1+np.exp(-x))
+
+        DATA_IN = np.zeros((1,self.n_sensors))
+
+        data_enc_event = np.array([[]])
+
+        for L1 in self.L1:
+            # L1 NUMBER
+            L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
+            for asic in L1:
+                L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
+                                    order='F')))
+            # Data PROCESSING
+            data = DATA_IN[0,L1_SiPM.T]
+            data = data.reshape(1,-1)[0]
+
+            # data = (data-self.COMP['minA'].transpose())/ \
+            #        (self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())
+            data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
+
+
+            # cond_TENC = (data_enc_aux > 0.038)
+            # data_enc_aux = data_enc_aux*cond_TENC
+
+            data_enc_event = np.hstack((data_enc_event,data_enc_aux))
+
+        return data_enc_event
+
+
+
+
+    def encoder5mm(self,event,first,enc_threshold,diff_threshold):
 
         def sigmoid(x, derivative=False):
             return x*(1-x) if derivative else 1/(1+np.exp(-x))
@@ -262,12 +296,11 @@ class DAQ_MODEL(object):
             # data = (data-self.COMP['minA'].transpose())/ \
             #        (self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())
             data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
-
-
-            # cond_TENC = (data_enc_aux > 0.038)
-            # data_enc_aux = data_enc_aux*cond_TENC
-
             data_enc_event = np.hstack((data_enc_event,data_enc_aux))
+
+        #data_enc_event = data_enc_event - enc_threshold
+        cond_TENC = data_enc_event > diff_threshold
+        data_enc_event = data_enc_event*cond_TENC
 
         # Store compressed information for every event
         self.data_enc = np.vstack((self.data_enc,data_enc_event))
@@ -290,7 +323,7 @@ class DAQ_MODEL(object):
             #if (L1_SiPM.shape[1]==(self.COMP['DEC_weights_A'].shape[1]//self.n_rows)):
             L1_size_compressed = self.COMP['DEC_weights_A'].shape[0]
             index_2 = index_1 + L1_size_compressed
-            data_recons_event = self.data_enc[i-first,index_1:index_2]
+            data_recons_event = self.data_enc[i-first,index_1:index_2] + enc_threshold[0,index_1:index_2]
             recons_event = np.dot(data_recons_event,self.COMP['DEC_weights_A']) + self.COMP['DEC_bias_A'].T
             # recons_event = recons_event*(self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())\
             #                + self.COMP['minA'].transpose()
@@ -306,7 +339,7 @@ class DAQ_MODEL(object):
             self.data_recons = (self.data_recons > self.TE2) * self.data_recons
 
 
-    def process(self,event_range):
+    def process(self,event_range,enc_threshold,diff_threshold):
 
         n_sensors = self.n_sensors
 
@@ -358,7 +391,7 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
-            self.encoder5mm(i,first)
+            self.encoder5mm(i,first,enc_threshold,diff_threshold)
 
 
 
@@ -424,10 +457,11 @@ class DAQ_MODEL(object):
         # self.sipm_iter1B_B = np.vstack((self.sipm_iter1B_B,self.sipm_iter1B))
 
 
-def DAQ_out(file_number,path,jsonfilename,encoder_data):
+def DAQ_out(file_number,path,jsonfilename,encoder_data,Tenc):
 
     TEST_c = DAQ_MODEL(path,jsonfilename,file_number,encoder_data)
     TEST_c.read_files()
+    enc_threshold = TEST_c.enc_offset()
 
     group = 100
     e_vec = np.arange(0,TEST_c.events_infile,group)
@@ -438,7 +472,8 @@ def DAQ_out(file_number,path,jsonfilename,encoder_data):
     i=0
     for x,x_1 in zip(low,high):
         TEST_c.read_data(np.arange(x,x_1))
-        TEST_c.process(np.arange(x,x_1))
+        #diff_threshold allows to send only useful information
+        TEST_c.process(np.arange(x,x_1),enc_threshold,Tenc)
         TEST_c.add_event_batch()
         print ("BATCH %d DONE" % i)
         i+=1
@@ -451,12 +486,12 @@ def DAQ_out(file_number,path,jsonfilename,encoder_data):
 
 if __name__ == "__main__":
 
-    json_file = "Encoder_Test"
+    json_file = "Encoder_Test2"
     path      = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/"
 
-    SIM_JSON = CFG.SIM_DATA(filename = path + json_file +".json",read=True)
+    SIM_JSON     = CFG.SIM_DATA(filename = path + json_file +".json",read=True)
     encoder_file = SIM_JSON.data['ENVIRONMENT']['AUTOENCODER_file_name']
-
+    Tenc         = SIM_JSON.data['L1']['Tenc']
     # AUTOENCODER DATA READING (Trick to read easily and keep names)
     COMP={}
     with pd.HDFStore(path + encoder_file) as store:
@@ -465,7 +500,8 @@ if __name__ == "__main__":
 
     kargs = {'path'         :path,
              'jsonfilename' :json_file,
-             'encoder_data' :COMP}
+             'encoder_data' :COMP,
+             'Tenc'         :Tenc}
     TRANS_map = partial(DAQ_out, **kargs)
 
     # Multiprocess Work

@@ -656,6 +656,8 @@ class encoder_graphs(object):
                               read     = True)
         orig_array=[]
         enco_array=[]
+        TE_data_array=[]
+        ENC_data_array=[]
         n_files             = CONFIG.data['ENVIRONMENT']['n_files']
         path                = CONFIG.data['ENVIRONMENT']['path_to_files']
         MC_out_file_name    = CONFIG.data['ENVIRONMENT']['MC_out_file_name']
@@ -664,7 +666,7 @@ class encoder_graphs(object):
 
         # Sensor Positions
         sipm_cart = np.array(pd.read_hdf(path + MC_out_file_name + "." + \
-                                         str(n_files[0]) + ".h5",
+                                         str(n_files[0]).zfill(3) + ".h5",
                                          key='sensors'))
         self.sipm_polar = np.zeros(sipm_cart.shape)
         # Columns -> [sensor,r,z,phi]
@@ -680,10 +682,12 @@ class encoder_graphs(object):
 
 
         for j in n_files:
-            d_recons = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j) + ".h5",
-                               key='MC_recons'))
-            d_TE     = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j) + ".h5",
-                               key='MC_TE'))
+            d_recons  = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_recons'))
+            d_TE      = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_TE'))
+            d_encoded = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_encoded'))
 
             for i in range(d_TE.shape[0]):
 
@@ -698,6 +702,10 @@ class encoder_graphs(object):
 
                 orig_array.append(original)
                 enco_array.append(encoded)
+
+                # Data compression statistics
+                TE_data_array.append(np.sum(d_TE[i,:]>0))
+                ENC_data_array.append(np.sum(d_encoded[i,:]>0))
 
 
         # Processing DONE now ERROR computation
@@ -720,31 +728,69 @@ class encoder_graphs(object):
 
         # Now the plotting stuff
         err_fit = fit_library.GND_fit()
+        g_fit   = fit_library.gauss_fit()
+
         fig = plt.figure(figsize=(10,10))
         err_fit(z_m_err,'sqrt')
-        err_fit.plot(axis = fig.add_subplot(221),
+        err_fit.plot(axis = fig.add_subplot(321),
                         title = "Z mean ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
         err_fit(phi_m_err,'sqrt')
-        err_fit.plot(axis = fig.add_subplot(222),
+        err_fit.plot(axis = fig.add_subplot(322),
                         title = "PHI mean ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
         err_fit(z_s_err,'sqrt')
-        err_fit.plot(axis = fig.add_subplot(223),
+        err_fit.plot(axis = fig.add_subplot(323),
                         title = "Z sigma ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
         err_fit(phi_s_err,'sqrt')
-        err_fit.plot(axis = fig.add_subplot(224),
+        err_fit.plot(axis = fig.add_subplot(324),
                         title = "PHI sigma ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
                         res = True, fit = True)
+        # g_fit.plot(axis = fig.add_subplot(325),
+        #                 title = "DATA sent in TE mode (blue) & ENCODER mode (red)",
+        #                 xlabel = "Number of Words",
+        #                 ylabel = "Hits",
+        #                 res = True, fit = True)
+
+        data_sent = fig.add_subplot(325)
+        g_fit(TE_data_array,'sqrt')
+        x_data = g_fit.bin_centers
+        data_sent.bar(x_data,g_fit.hist,color='b')
+
+        g_fit(ENC_data_array,'sqrt')
+        x_data = g_fit.bin_centers
+        data_sent.bar(x_data,g_fit.hist,color='r')
+
+        data_sent.set_title("DATA sent in TE mode & ENCODER mode")
+        data_sent.set_xlabel("Number of Words")
+        data_sent.set_ylabel("Red - ENCODER (words)) / Blue - TE (words)")
+
+        g_fit(np.array(TE_data_array)-np.array(ENC_data_array),'sqrt')
+        diff = fig.add_subplot(326)
+        g_fit.plot(axis = diff,
+                        title = "Difference in Data sent in both modes",
+                        xlabel = "Number of Words",
+                        ylabel = "Hits",
+                        res = False, fit = False)
+        diff.text(0.99,0.97,(("DATA SENT in TE MODE  = %d words\n" + \
+                              "DATA SENT in ENCODER MODE = %d words\n" + \
+                              "COMPRESS RATIO = %f \n") % \
+                              (np.sum(TE_data_array),np.sum(ENC_data_array),
+                               float(np.sum(ENC_data_array)/np.sum(TE_data_array)))),
+                                fontsize=8,
+                                verticalalignment='top',
+                                horizontalalignment='right',
+                                transform=diff.transAxes)
+
         fig.tight_layout()
         #plt.show()
         plt.savefig(self.data_path + self.config_file + ".pdf")
@@ -767,15 +813,15 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    # A = encoder_graphs("test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/6mm_pitch/")
-    # A(roi_size=32,roi_height=16)
+    A = encoder_graphs("Encoder_Test2","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A(roi_size=32,roi_height=16)
 
-    A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
-                          in_file = "compresores_pitch5mm_rad161mm_1_medio_ver1_export.mat",
-                          out_file = "Rafa_2UP.h5",
-                          json_file = "Encoder_Test")
-    A.read()
-    A.write()
+    # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
+    #                       in_file = "compresores_pitch5mm_rad161mm_1_medio_ver1_export.mat",
+    #                       out_file = "Rafa_2UP.h5",
+    #                       json_file = "Encoder_Test")
+    # A.read()
+    # A.write()
 
 if __name__ == "__main__":
     main()

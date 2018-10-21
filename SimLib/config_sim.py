@@ -25,7 +25,7 @@ class SIM_DATA(object):
                                         'file_name': "p_OF_5mm_161mm",
                                         'MC_file_name':"full_ring_iradius161mm_depth3cm_pitch5mm_one_face",
                                         'out_file_name':"DAQ_OF5mm",
-                                        'MC_out_file_name':"FASTDAQOUT_OF5mm",
+                                        'MC_out_file_name':"FASTDAQOUT_OF5mm_V2",
                                         'AUTOENCODER_file_name':"Rafa_2UP.h5",
                                         'time_bin': 5,
                                         'n_files' : range(4),
@@ -60,7 +60,8 @@ class SIM_DATA(object):
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
                                         'L1_mapping_O'  :[10,10,10,10,10,10],
-                                        'enc_out_len'   :1920
+                                        'enc_out_len'   :1920,
+                                        'Tenc'          :0.05
                                         }
                        }
 # 'L1_mapping_O'  :[11,12,12,12,12,12]
@@ -94,7 +95,7 @@ class SIM_DATA(object):
 if __name__ == '__main__':
 
     #filename = "OF_4mm_BUF640_V3"
-    filename = "Encoder_Test"
+    filename = "Encoder_Test2"
     SIM=SIM_DATA(filename = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/"+filename+".json",
                  read = False)
     SIM.config_write()
