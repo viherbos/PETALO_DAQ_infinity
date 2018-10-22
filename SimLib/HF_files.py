@@ -763,18 +763,19 @@ class encoder_graphs(object):
 
         data_sent = fig.add_subplot(325)
         g_fit(TE_data_array,'sqrt')
-        x_data = g_fit.bin_centers
-        data_sent.bar(x_data,g_fit.hist,color='b')
+        x_data = g_fit.bin_centers[g_fit.bin_centers<250]
+        data_sent.bar(x_data,g_fit.hist[:len(x_data)],color='b')
 
         g_fit(ENC_data_array,'sqrt')
-        x_data = g_fit.bin_centers
-        data_sent.bar(x_data,g_fit.hist,color='r')
+        x_data = g_fit.bin_centers[g_fit.bin_centers<250]
+        data_sent.bar(x_data,g_fit.hist[:len(x_data)],color='r')
 
         data_sent.set_title("DATA sent in TE mode & ENCODER mode")
         data_sent.set_xlabel("Number of Words")
         data_sent.set_ylabel("Red - ENCODER (words)) / Blue - TE (words)")
 
-        g_fit(np.array(TE_data_array)-np.array(ENC_data_array),'sqrt')
+        diff_data = np.array(TE_data_array)-np.array(ENC_data_array)
+        g_fit(diff_data[diff_data<250],'sqrt')
         diff = fig.add_subplot(326)
         g_fit.plot(axis = diff,
                         title = "Difference in Data sent in both modes",
@@ -785,7 +786,7 @@ class encoder_graphs(object):
                               "DATA SENT in ENCODER MODE = %d words\n" + \
                               "COMPRESS RATIO = %f \n") % \
                               (np.sum(TE_data_array),np.sum(ENC_data_array),
-                               float(np.sum(ENC_data_array)/np.sum(TE_data_array)))),
+                               float(np.sum(ENC_data_array))/float(np.sum(TE_data_array)))),
                                 fontsize=8,
                                 verticalalignment='top',
                                 horizontalalignment='right',
@@ -813,7 +814,7 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = encoder_graphs("Encoder_Test2","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A = encoder_graphs("test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
     A(roi_size=32,roi_height=16)
 
     # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
