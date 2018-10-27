@@ -16,7 +16,8 @@ import config_sim as CFG
 import DAQ_infinity as DAQ
 from matplotlib.ticker import MaxNLocator
 import scipy.io as SCIO
-import sipm_mapping as DAQ
+import sipm_mapping as SM
+import string
 
 
 class ENCODER_MAT2HF(object):
@@ -227,7 +228,7 @@ class hdf_compose(object):
 
     def compose(self):
 
-        hf = hdf_access(self.path,self.file_name + str(self.files[0]) + ".h5")
+        hf = hdf_access(self.path,self.file_name + str(self.files[0]).zfill(3) + ".h5")
         self.data_aux,self.sensors,self.events = hf.read()
         self.data = np.pad( self.data,
                             ((0,self.events),(0,0)),
@@ -236,7 +237,7 @@ class hdf_compose(object):
         self.data[-self.events:,:] = self.data_aux
 
         for i in self.files:
-            hf = hdf_access(self.path,self.file_name + str(i) + ".h5")
+            hf = hdf_access(self.path,self.file_name + str(i).zfill(3) + ".h5")
             self.data_aux,self.fake,self.events = hf.read()
             self.data = np.pad( self.data,
                                 ((0,self.events),(0,0)),
@@ -275,10 +276,16 @@ class infinity_graphs(object):
         frame_frag   = np.array([]).reshape(0,n_L1+1)
 
         for i in self.config_file:
+            # jsonname = string.replace(i,"/","_")
+            # jsonname = string.replace(jsonname,".","")
+            start = i.rfind("/")
+            jsonname = i[start+1:]
+
             config_file2 = self.data_path + i + ".json"
             CG = CFG.SIM_DATA(filename = config_file2,read = True)
             CG = CG.data
-            filename = CG['ENVIRONMENT']['out_file_name']+"_"+ i + ".h5"
+            chain = CG['ENVIRONMENT']['out_file_name'][CG['ENVIRONMENT']['out_file_name'].rfind("./")+2:]
+            filename = chain + "_" + jsonname + ".h5"
             filename = self.data_path + filename
 
             logA         = np.vstack([logA,np.array(pd.read_hdf(filename,key='logA'))])
@@ -473,7 +480,7 @@ class infinity_graphs(object):
 
         ############### FRAME FRAGMENTATION ANALYSIS ##########################
         # TIME FRAGMENTATION
-        frag_matrix = frame_frag[:,1:]
+        frag_matrix = frame_frag[1:,1:]
         frag_matrix = frag_matrix.reshape(-1)
         frag_matrix = (frag_matrix>0)*frag_matrix
         fit(frag_matrix,range(1,int(np.max(frag_matrix))+2))
@@ -676,7 +683,7 @@ class encoder_graphs(object):
         self.sipm_polar[:,3] = np.arctan2(sipm_cart[:,2],sipm_cart[:,1])
 
         # Get SiPM Mapping
-        L1, I, SiPM_Matrix, topo = DAQ.SiPM_Mapping(CONFIG.data,CONFIG.data['L1']['map_style'])
+        L1, I, SiPM_Matrix, topo = SM.SiPM_Mapping(CONFIG.data,CONFIG.data['L1']['map_style'])
         offset = int(self.sipm_polar[0,0])
         SiPM_Matrix = SiPM_Matrix + offset
 
@@ -814,7 +821,7 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = encoder_graphs("test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A = encoder_graphs("./VER5/test_TENC200","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
     A(roi_size=32,roi_height=16)
 
     # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",

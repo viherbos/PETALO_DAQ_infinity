@@ -9,6 +9,8 @@ from SimLib import config_sim as CFG
 #from SimLib import DAQ_infinity as DAQ
 from SimLib import sipm_mapping as DAQ
 from SimLib import Encoder_tools as ENC
+import argparse
+
 
 """ HIGH LEVEL MODEL OF DAQ
     Output file is a HF5 based pandas structure with the following fields:
@@ -101,10 +103,10 @@ class DAQ_MODEL(object):
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
-        self.out_table_B     = np.array([]).reshape(0,self.n_sensors)
+        self.out_table_B     = np.array([],dtype='float').reshape(0,self.n_sensors)
         self.out_table_tof_B = np.array([]).reshape(0,self.n_sensors)
-        self.data_recons_B   = np.array([]).reshape(0,self.n_sensors)
-        self.data_enc_B   = np.array([]).reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
+        self.data_recons_B   = np.array([],dtype='float').reshape(0,self.n_sensors)
+        self.data_enc_B   = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
         self.subth_QDC_L1_B  = np.array([]).reshape(0,len(self.L1))
         self.subth_TDC_L1_B  = np.array([]).reshape(0,len(self.L1))
 
@@ -119,7 +121,7 @@ class DAQ_MODEL(object):
         self.subth_QDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.subth_TDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.data_recons    = np.zeros((self.n_events,self.n_sensors),dtype='float')
-        self.data_enc       = np.array([]).reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
+        self.data_enc       = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
 
 
     def write(self,iter=False):
@@ -161,183 +163,6 @@ class DAQ_MODEL(object):
             store.put('MC_recons',recons_array)
             store.close()
 
-
-    # def encoder(self,event,first,diff_threshold):
-    #
-    #     def sigmoid(x, derivative=False):
-    #         return x*(1-x) if derivative else 1/(1+np.exp(-x))
-    #
-    #     i = event
-    #     data_enc_event = np.array([[]])
-    #
-    #     for L1 in self.L1:
-    #         # L1 NUMBER
-    #         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-    #         for asic in L1:
-    #             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
-    #                                 order='F')))
-    #         # Data PROCESSING
-    #         data = self.out_table[i-first,L1_SiPM.T]
-    #         data = data.reshape(1,-1)[0]
-    #
-    #
-    #         if (data.shape[0]==self.COMP['ENC_weights_A'].shape[0]):
-    #             data = (data-self.COMP['minA'].transpose())/ \
-    #                    (self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())
-    #             data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
-    #         else:
-    #             data = (data-self.COMP['minB'].transpose())/ \
-    #                    (self.COMP['maxB'].transpose()-self.COMP['minB'].transpose())
-    #             data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_B']) + self.COMP['ENC_bias_B'].T)
-    #
-    #         cond_TENC = (data_enc_aux > diff_threshold)
-    #         data_enc_aux = data_enc_aux*cond_TENC
-    #
-    #         data_enc_event = np.hstack((data_enc_event,data_enc_aux))
-    #
-    #     # Store compressed information for every event
-    #     self.data_enc = np.vstack((self.data_enc,data_enc_event))
-    #
-    #     ####################################################################
-    #     ###            Event reconstruction after encoding               ###
-    #     ####################################################################
-    #
-    #     index_2 = 0
-    #
-    #     for L1 in self.L1:
-    #         index_1 = index_2
-    #
-    #         # Build L1_SiPM matrix
-    #         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-    #         for asic in L1:
-    #             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
-    #                                 order='F')))
-    #
-    #         if (L1_SiPM.shape[1]==(self.COMP['DEC_weights_A'].shape[1]//self.n_rows)):
-    #             L1_size_compressed = self.COMP['DEC_weights_A'].shape[0]
-    #             index_2 = index_1 + L1_size_compressed
-    #             data_recons_event = self.data_enc[i-first,index_1:index_2]
-    #             recons_event = sigmoid(np.dot(data_recons_event,self.COMP['DEC_weights_A']) + self.COMP['DEC_bias_A'].T)
-    #             recons_event = recons_event*(self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())\
-    #                            + self.COMP['minA'].transpose()
-    #             recons_event = recons_event.reshape((self.COMP['DEC_weights_A'].shape[1]//self.n_rows),self.n_rows)
-    #
-    #         else:
-    #             L1_size_compressed = self.COMP['DEC_weights_B'].shape[0]
-    #             index_2 = index_1 + L1_size_compressed
-    #             data_recons_event = self.data_enc[i-first,index_1:index_2]
-    #             recons_event = sigmoid(np.dot(data_recons_event,self.COMP['DEC_weights_B']) + self.COMP['DEC_bias_B'].T)
-    #             recons_event = recons_event*(self.COMP['maxB'].transpose()-self.COMP['minB'].transpose())\
-    #                            + self.COMP['minB'].transpose()
-    #             recons_event = recons_event.reshape((self.COMP['DEC_weights_B'].shape[1]//self.n_rows),self.n_rows)
-    #
-    #         recons_event = recons_event.T
-    #
-    #         for sipm_id in L1_SiPM:
-    #             # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
-    #             self.data_recons[i-first,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
-    #
-    #         # We apply the same threshold as for original data
-    #         self.data_recons = (self.data_recons > self.TE2) * self.data_recons
-    #
-    #
-    #
-    # def enc_offset(self):
-    #
-    #     def sigmoid(x, derivative=False):
-    #         return x*(1-x) if derivative else 1/(1+np.exp(-x))
-    #
-    #     DATA_IN = np.zeros((1,self.n_sensors))
-    #
-    #     data_enc_event = np.array([[]])
-    #
-    #     for L1 in self.L1:
-    #         # L1 NUMBER
-    #         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-    #         for asic in L1:
-    #             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
-    #                                 order='F')))
-    #         # Data PROCESSING
-    #         data = DATA_IN[0,L1_SiPM.T]
-    #         data = data.reshape(1,-1)[0]
-    #
-    #         # data = (data-self.COMP['minA'].transpose())/ \
-    #         #        (self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())
-    #         data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
-    #
-    #
-    #         # cond_TENC = (data_enc_aux > 0.038)
-    #         # data_enc_aux = data_enc_aux*cond_TENC
-    #
-    #         data_enc_event = np.hstack((data_enc_event,data_enc_aux))
-    #
-    #     return data_enc_event
-    #
-    #
-    #
-    #
-    # def encoder5mm(self,event,first,enc_threshold,diff_threshold):
-    #
-    #     def sigmoid(x, derivative=False):
-    #         return x*(1-x) if derivative else 1/(1+np.exp(-x))
-    #
-    #     i = event
-    #     data_enc_event = np.array([[]])
-    #
-    #     for L1 in self.L1:
-    #         # L1 NUMBER
-    #         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-    #         for asic in L1:
-    #             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
-    #                                 order='F')))
-    #         # Data PROCESSING
-    #         data = self.out_table[i-first,L1_SiPM.T]
-    #         data = data.reshape(1,-1)[0]
-    #
-    #         # data = (data-self.COMP['minA'].transpose())/ \
-    #         #        (self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())
-    #         data_enc_aux = sigmoid(np.dot(data,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
-    #         data_enc_event = np.hstack((data_enc_event,data_enc_aux))
-    #
-    #     #data_enc_event = data_enc_event - enc_threshold
-    #     cond_TENC = data_enc_event > diff_threshold
-    #     data_enc_event = data_enc_event*cond_TENC
-    #
-    #     # Store compressed information for every event
-    #     self.data_enc = np.vstack((self.data_enc,data_enc_event))
-    #
-    #     ####################################################################
-    #     ###            Event reconstruction after encoding               ###
-    #     ####################################################################
-    #
-    #     index_2 = 0
-    #
-    #     for L1 in self.L1:
-    #         index_1 = index_2
-    #
-    #         # Build L1_SiPM matrix
-    #         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
-    #         for asic in L1:
-    #             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
-    #                                 order='F')))
-    #
-    #         #if (L1_SiPM.shape[1]==(self.COMP['DEC_weights_A'].shape[1]//self.n_rows)):
-    #         L1_size_compressed = self.COMP['DEC_weights_A'].shape[0]
-    #         index_2 = index_1 + L1_size_compressed
-    #         data_recons_event = self.data_enc[i-first,index_1:index_2] + enc_threshold[0,index_1:index_2]
-    #         recons_event = np.dot(data_recons_event,self.COMP['DEC_weights_A']) + self.COMP['DEC_bias_A'].T
-    #         # recons_event = recons_event*(self.COMP['maxA'].transpose()-self.COMP['minA'].transpose())\
-    #         #                + self.COMP['minA'].transpose()
-    #         recons_event = recons_event.reshape((self.COMP['DEC_weights_A'].shape[1]//self.n_rows),self.n_rows)
-    #
-    #         recons_event = recons_event.T
-    #
-    #         for sipm_id in L1_SiPM:
-    #             # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
-    #             self.data_recons[i-first,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
-    #
-    #         # We apply the same threshold as for original data
-    #         self.data_recons = (self.data_recons > self.TE2) * self.data_recons
 
 
     def process(self,event_range,enc_threshold,diff_threshold):
@@ -399,10 +224,12 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
-            #self.encoder5mm(i,first,enc_threshold,diff_threshold)
+            # Find OFFSETs for thresholds
+            TH_enc    = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
+                                              dtype='float'),0)*diff_threshold
 
             # ENCODER WORKS per L1 basis
-            data_enc_event = np.array([[]])
+            data_enc_event = np.array([[]],dtype='float')
             for L1 in self.L1:
                 # Find SiPM included in L1
                 L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
@@ -413,7 +240,7 @@ class DAQ_MODEL(object):
                 data = self.out_table[i-first,L1_SiPM.T]
                 data = data.reshape(1,-1)[0]
 
-                data_enc_L1    = ET.encoder(L1,data,diff_threshold)
+                data_enc_L1    = ET.encoder(L1,data,TH_enc)
                 data_enc_event = np.hstack((data_enc_event,data_enc_L1))
 
             # Store compressed information for every event
@@ -438,7 +265,7 @@ class DAQ_MODEL(object):
 
 
         # In the end we apply the same threshold for reconstructed
-        #self.data_recons = self.data_recons * (self.data_recons > self.TE2)
+        self.data_recons = self.data_recons * (self.data_recons > self.TE2)
 
 
 
@@ -534,17 +361,54 @@ def DAQ_out(file_number,path,jsonfilename,encoder_data,Tenc):
 
 if __name__ == "__main__":
 
-    json_file = "test"
-    path      = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/"
+    # Argument parser for config file name
+    parser = argparse.ArgumentParser(description='FAST DAQ Simulation (Encoder + Threshold Effects).')
+    parser.add_argument("-f", "--json_file", action="store_true",
+                        help="Show events with configuration stored in json file")
+    parser.add_argument('arg1', metavar='json', nargs='?', help='')
+
+    parser.add_argument("-d", "--directory", action="store_true",
+                        help="Work directory")
+    parser.add_argument('arg2', metavar='Working Path', nargs='?', help='')
+
+    args = parser.parse_args()
+
+    if args.json_file:
+        json_file = ''.join(args.arg1)
+    else:
+        json_file = "test"
+    if args.directory:
+        path = ''.join(args.arg2)
+    else:
+        path="/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/"
+
+    #json_file = "./VER2/test"
+    #path      = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/"
 
     SIM_JSON     = CFG.SIM_DATA(filename = path + json_file +".json",read=True)
     encoder_file = SIM_JSON.data['ENVIRONMENT']['AUTOENCODER_file_name']
     Tenc         = SIM_JSON.data['L1']['Tenc']
-    # AUTOENCODER DATA READING (Trick to read easily and keep names)
-    COMP={}
-    with pd.HDFStore(path + encoder_file) as store:
-        keys = store.keys()
-    COMP = {i[1:]:np.array(pd.read_hdf(path + encoder_file,key=i[1:])) for i in keys}
+
+    # MATLAB AUTOENCODER DATA READING (Trick to read easily and keep names)
+    # COMP={}
+    # with pd.HDFStore(path + encoder_file) as store:
+    #     keys = store.keys()
+    # COMP = {i[1:]:np.array(pd.read_hdf(path + encoder_file,key=i[1:])) for i in keys}
+
+
+
+    # Keras Model read hack:
+
+    with tb.open_file(path + encoder_file) as h5file:
+        B=[]
+        for array in h5file.walk_nodes("/"):
+            B.append(array)
+        COMP={}
+        COMP={'ENC_bias_A'   :np.array([B[-2][:]],dtype=float).T,
+             'ENC_weights_A' :np.array(B[-1][:],dtype=float),
+             'DEC_bias_A'    :np.array([B[-4][:]],dtype=float).T,
+             'DEC_weights_A' :np.array(B[-3][:],dtype=float)}
+
 
     kargs = {'path'         :path,
              'jsonfilename' :json_file,

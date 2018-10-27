@@ -37,7 +37,8 @@ class SIM_DATA(object):
                                         'radius_ext'   :161,
                                         'sipm_int_row' :0,
                                         'sipm_ext_row' :240,
-                                        'n_rows'       :16},
+                                        'n_rows'       :16,
+                                        'first_sipm'   :4232},
 
                         'TOFPET'      :{'n_channels'  :64,
                                         'outlink_rate': (2.6E9/80)/2.0,
