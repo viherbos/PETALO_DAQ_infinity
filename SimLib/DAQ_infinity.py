@@ -673,7 +673,7 @@ class L1_ENCODER(object):
                     # Write Output Frames to output FIFO
                     cnt = 0
                     for i in out_B:
-                        if (i['data'][2] != 11111):
+                        if ((i['data'][2] != 11111) and (i['data'][0]>0)):
                             cnt = cnt + 1
                             self.lostB = self.putB(i,self.lostB)
                             n_ENC_OUTS = i['data'][0]
@@ -749,7 +749,7 @@ class L1_ENCODER(object):
                 sipm = np.array(L1_event_data[0::2],dtype='int')
                 qdc  = np.array(L1_event_data[1::2],dtype='float')
 
-                L1_vector = np.zeros(L1_SiPM.shape)
+                L1_vector = np.zeros(L1_SiPM.shape,dtype='float')
 
                 for a in L1_SiPM:
                     selec_b = (sipm==a)
@@ -765,7 +765,6 @@ class L1_ENCODER(object):
                 data_enc_pos =  data_enc_pos[selec_C]+\
                                 self.L1_id*self.COMP['ENC_weights_A'].shape[1]
                 # This generates a unique ENC out number
-
                 frame_aux = [[data_enc_pos[k],data_enc_L1[k]] for k in range(len(data_enc_L1))]
                 frame_aux = list(np.array(frame_aux).reshape(-1))
                 frame_aux.append(frame['data'][-1])

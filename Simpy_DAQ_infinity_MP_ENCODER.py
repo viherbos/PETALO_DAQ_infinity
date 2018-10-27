@@ -365,6 +365,9 @@ if __name__ == '__main__':
     data_recons    = np.zeros((n_events,n_sipms),dtype='float')
 
 
+    # data_encoded = np.array(pd.read_hdf("/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/VER5/FASTDAQOUT_OF5mm_TENC150.000.h5",
+    #                         key='MC_encoded'), dtype = 'float')
+
     for i in range(n_events):
         index_1 = 0
         for L1 in L1_box:
@@ -372,13 +375,15 @@ if __name__ == '__main__':
             L1_SiPM = np.array([],dtype='int').reshape(n_rows,0)
             for asic in L1:
                 L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((n_rows,-1),order='F')))
+
             data_enc_aux = out['data'][i,:]
-                        
+            #data_enc_aux = data_encoded[i,:]
+
             index_1,recons_event = ENC.decoder(L1_SiPM,data_enc_aux, index_1)
 
             for sipm_id in L1_SiPM:
                 # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
-                data_recons[i,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
+                data_recons[i,sipm_id] = recons_event[L1_SiPM==sipm_id]
 
     data_recons = data_recons * (data_recons > CG['L1']['TE'])
 
