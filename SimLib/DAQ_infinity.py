@@ -578,6 +578,10 @@ class L1_ENCODER(object):
 
         self.i_out_array = 0
 
+        n_sipms_int = param.P['TOPOLOGY']['sipm_int_row']*param.P['TOPOLOGY']['n_rows']
+        n_sipms_ext = param.P['TOPOLOGY']['sipm_ext_row']*param.P['TOPOLOGY']['n_rows']
+        self.n_sipms     = n_sipms_int + n_sipms_ext
+
         # Let's find index of L1_Slice
         style = param.P['L1']['map_style']
         L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = MAP.SiPM_Mapping(param.P, style)
@@ -699,7 +703,9 @@ class L1_ENCODER(object):
         L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
         for asic in self.SiPM_Matrix:
             L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),order='F')))
-        L1_SiPM = L1_SiPM.reshape(1,-1)[0]+self.param.P['TOPOLOGY']['first_sipm']
+        #L1_SiPM = L1_SiPM.reshape(1,-1)[0]
+
+        first_sipm = self.param.P['TOPOLOGY']['first_sipm']
         # First sipm correction
 
         # out.extend([{'data'      :[n_ch | in_time | n_ch*[sensor_id | QDC]] | sum_QDC<TE2]
@@ -747,19 +753,23 @@ class L1_ENCODER(object):
 
                 L1_event_data = frame['data'][2:-1]
                 sipm = np.array(L1_event_data[0::2],dtype='int')
+                sipm = sipm -first_sipm
                 qdc  = np.array(L1_event_data[1::2],dtype='float')
 
-                L1_vector = np.zeros(L1_SiPM.shape,dtype='float')
 
-                for a in L1_SiPM:
-                    selec_b = (sipm==a)
-                    if (np.sum(selec_b)>0):
-                        L1_vector[(L1_SiPM==a)] = qdc[selec_b]
+                L1_vector_ord = np.zeros(self.n_sipms,dtype='float')
+                for el in sipm:
+                    if ((el < (self.n_sipms-1)) and (el > 0)):
+                        L1_vector_ord[el] = qdc[sipm==el]
 
+                L1_vector = L1_vector_ord[L1_SiPM.T]
+                L1_vector = L1_vector.reshape(1,-1)[0]
 
                 data_enc_L1  = self.compress.encoder(0,L1_vector,TH_enc)
 
+
                 data_enc_pos = np.array([np.arange(len(data_enc_L1[0]))])
+
                 selec_C = (data_enc_L1>0)
                 data_enc_L1  = data_enc_L1[selec_C]
                 data_enc_pos =  data_enc_pos[selec_C]+\

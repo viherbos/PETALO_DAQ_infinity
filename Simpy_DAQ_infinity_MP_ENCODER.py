@@ -298,6 +298,7 @@ if __name__ == '__main__':
     n_sipms_int = CG['TOPOLOGY']['sipm_int_row']*CG['TOPOLOGY']['n_rows']
     n_sipms_ext = CG['TOPOLOGY']['sipm_ext_row']*CG['TOPOLOGY']['n_rows']
     n_sipms     = n_sipms_int + n_sipms_ext
+    first_sipm  = CG['TOPOLOGY']['first_sipm']
 
     n_files = CG['ENVIRONMENT']['n_files']
     # Number of files to group for data input
