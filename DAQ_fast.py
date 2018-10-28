@@ -10,6 +10,7 @@ from SimLib import config_sim as CFG
 from SimLib import sipm_mapping as DAQ
 from SimLib import Encoder_tools as ENC
 import argparse
+from SimLib import HF_files as HF
 
 
 """ HIGH LEVEL MODEL OF DAQ
@@ -99,7 +100,7 @@ class DAQ_MODEL(object):
         self.h5file = tb.open_file(self.in_file, mode="r")
         self.table = self.h5file.root.MC.particles
 
-        self.events_infile  = 500 #self.extents.shape[0]
+        self.events_infile  = self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
@@ -180,6 +181,10 @@ class DAQ_MODEL(object):
                   'n_sensors':self.n_sensors}
 
         ET = ENC.encoder_tools_N(**kwargs)
+        # Find OFFSETs for thresholds
+        ET.THRESHOLD = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
+                                          dtype='float'),0)
+
 
         first = event_range[0]
         for i in event_range: #range(0,800): #self.n_events):
@@ -224,9 +229,8 @@ class DAQ_MODEL(object):
             ###                    AUTOENCODER PROCESSING                    ###
             ####################################################################
 
-            # Find OFFSETs for thresholds
-            TH_enc    = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
-                                              dtype='float'),0)*diff_threshold
+
+            TH_enc = diff_threshold
 
             # ENCODER WORKS per L1 basis
             data_enc_event = np.array([[]],dtype='float')
@@ -434,5 +438,7 @@ if __name__ == "__main__":
 
     toc = time.time()
     print("You made me waste %d seconds of my precious time in this simulation" % (toc-tic))
-
     #DAQ_out(0,**kargs)
+
+    A = HF.encoder_graphs(json_file,path)
+    A(roi_size=32,roi_height=16)
