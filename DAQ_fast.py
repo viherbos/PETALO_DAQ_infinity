@@ -99,7 +99,7 @@ class DAQ_MODEL(object):
         self.h5file = tb.open_file(self.in_file, mode="r")
         self.table = self.h5file.root.MC.particles
 
-        self.events_infile  = self.extents.shape[0]
+        self.events_infile  = 500 #self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
@@ -179,7 +179,7 @@ class DAQ_MODEL(object):
                   'TE2':self.TE2,
                   'n_sensors':self.n_sensors}
 
-        ET = ENC.encoder_tools(**kwargs)
+        ET = ENC.encoder_tools_N(**kwargs)
 
         first = event_range[0]
         for i in event_range: #range(0,800): #self.n_events):
@@ -399,7 +399,7 @@ if __name__ == "__main__":
 
     # Keras Model read hack:
 
-    with tb.open_file(path + encoder_file) as h5file:
+    with tb.open_file(path + encoder_file[2:] + ".h5") as h5file:
         B=[]
         for array in h5file.walk_nodes("/"):
             B.append(array)
@@ -408,7 +408,14 @@ if __name__ == "__main__":
              'ENC_weights_A' :np.array(B[-1][:],dtype=float),
              'DEC_bias_A'    :np.array([B[-4][:]],dtype=float).T,
              'DEC_weights_A' :np.array(B[-3][:],dtype=float)}
-
+    try:
+        with np.load(path + encoder_file[2:] + ".npz") as MMfile:
+            COMP['maxA'] = MMfile['arr_0']
+            COMP['minA'] = MMfile['arr_1']
+            print COMP['minA']
+            print COMP['maxA']
+    except:
+        print ("NO MIN_MAX FILE LOADED")
 
     kargs = {'path'         :path,
              'jsonfilename' :json_file,

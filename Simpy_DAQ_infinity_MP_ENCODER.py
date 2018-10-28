@@ -191,24 +191,8 @@ def DAQ_OUTPUT_processing_ENCODER(SIM_OUT,n_L1,n_asics,COMP):
     # i_TDC list of different TDC
 
 
-    # Data table building
-    event = 0
-    A_index = 0
 
-
-    n_ENC_outs = COMP['ENC_weights_A'].shape[1]*n_L1
-
-    data = np.zeros((n_events,n_ENC_outs),dtype='float')
-    for i in i_TDC:
-        for j in range(int(n_TDC[event])):
-            for l in range(int(A[A_index][0])):
-                #Number of data in Dataframe
-                data[event,int(A[A_index][2*l+2])] = A[A_index][2*l+3]
-
-            A_index += 1
-
-        event += 1
-
+    # Timestamp Generator
     n_words = np.zeros(len(A))
     # Buffer compression statistic
     for i in range(len(A)):
@@ -224,6 +208,31 @@ def DAQ_OUTPUT_processing_ENCODER(SIM_OUT,n_L1,n_asics,COMP):
             # Sometimes we have the same TDC for consecutive events
             event_order.append(time_vector[int(j)])
             cnt += 1
+
+    event_order = np.array(event_order)
+
+
+    # Data table building
+    event = 0
+    A_index = 0
+
+
+    n_ENC_outs = COMP['ENC_weights_A'].shape[1]*n_L1
+
+    data = np.zeros((n_events,n_ENC_outs),dtype='float')
+    for i in i_TDC:
+        for j in range(int(n_TDC[event])):
+            for l in range(int(A[A_index][0])):
+                #Number of data in Dataframe
+                ind_t = event_order[event]
+
+                data[np.argwhere(time_vector==ind_t),int(A[A_index][2*l+2])] = A[A_index][2*l+3]
+
+            A_index += 1
+
+        event += 1
+
+
 
 
 
@@ -241,7 +250,7 @@ def DAQ_OUTPUT_processing_ENCODER(SIM_OUT,n_L1,n_asics,COMP):
 
               'compress': n_words,
 
-              'tstamp_event':np.array(event_order),
+              'tstamp_event':event_order,
 
               'timestamp':time_vector
             }

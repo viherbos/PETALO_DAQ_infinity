@@ -751,6 +751,8 @@ class L1_ENCODER(object):
                 # Data is now agregated to the last out_array element
                 # Now each out['data'] corresponds to a L1 with a single event
 
+
+                # Now prepare the data exactly as in DAQ_fast
                 L1_event_data = frame['data'][2:-1]
                 sipm = np.array(L1_event_data[0::2],dtype='int')
                 sipm = sipm -first_sipm
@@ -765,11 +767,11 @@ class L1_ENCODER(object):
                 L1_vector = L1_vector_ord[L1_SiPM.T]
                 L1_vector = L1_vector.reshape(1,-1)[0]
 
+                # Use the compressor-encoder
                 data_enc_L1  = self.compress.encoder(0,L1_vector,TH_enc)
 
-
+                # Arrange data into a dataframe scheme
                 data_enc_pos = np.array([np.arange(len(data_enc_L1[0]))])
-
                 selec_C = (data_enc_L1>0)
                 data_enc_L1  = data_enc_L1[selec_C]
                 data_enc_pos =  data_enc_pos[selec_C]+\
@@ -781,7 +783,6 @@ class L1_ENCODER(object):
                 head = [len(data_enc_L1),frame['in_time']]
                 head.extend(frame_aux)
 
-                #print head
 
                 out_aux.extend([{'data':head,
                                  'in_time':frame['in_time'],

@@ -821,7 +821,7 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = encoder_graphs("./VER5/test_TENC200","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A = encoder_graphs("./VER6/test_TENC150","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
     A(roi_size=32,roi_height=16)
 
     # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
