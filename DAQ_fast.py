@@ -107,7 +107,7 @@ class DAQ_MODEL(object):
         self.out_table_B     = np.array([],dtype='float').reshape(0,self.n_sensors)
         self.out_table_tof_B = np.array([]).reshape(0,self.n_sensors)
         self.data_recons_B   = np.array([],dtype='float').reshape(0,self.n_sensors)
-        self.data_enc_B   = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
+        #self.data_enc_B   = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
         self.subth_QDC_L1_B  = np.array([]).reshape(0,len(self.L1))
         self.subth_TDC_L1_B  = np.array([]).reshape(0,len(self.L1))
 
@@ -118,11 +118,12 @@ class DAQ_MODEL(object):
         # Create empty matrixs for current file prrocessing
 
         self.out_table      = np.zeros((self.n_events,self.n_sensors),dtype='float')
+        self.out_table_comp = np.zeros((self.n_events,self.n_sensors),dtype='float')
         self.out_table_tof  = np.zeros((self.n_events,self.n_sensors),dtype='int32')
         self.subth_QDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.subth_TDC_L1   = np.zeros((self.n_events,len(self.L1)),dtype='int32')
         self.data_recons    = np.zeros((self.n_events,self.n_sensors),dtype='float')
-        self.data_enc       = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
+        #self.data_enc       = np.array([],dtype='float').reshape(0,self.SIM_CONT.data['L1']['enc_out_len'])
 
 
     def write(self,iter=False):
@@ -180,13 +181,16 @@ class DAQ_MODEL(object):
                   'TE2':self.TE2,
                   'n_sensors':self.n_sensors}
 
-        ET = ENC.encoder_tools_N(**kwargs)
+        ET = ENC.encoder_tools_W(**kwargs)
         # Find OFFSETs for thresholds
-        ET.THRESHOLD = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
-                                          dtype='float'),0)
+        if (len(self.COMP.keys()) > 1):
+            ET.THRESHOLD = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
+                                      dtype='float'),0)
 
 
         first = event_range[0]
+        flag_first = True
+
         for i in event_range: #range(0,800): #self.n_events):
 
             high_limit      = self.extents[i,1]
@@ -208,9 +212,12 @@ class DAQ_MODEL(object):
                 else:
                     sensor_data_tof = np.amin(event_tof[condition_tof,1])*self.time_bin
 
-                if (sensor_data > self.TE2):
-                    self.out_table[i-first,count_a]     = sensor_data
-                    self.out_table_tof[i-first,count_a] = sensor_data_tof
+                if (sensor_data > self.TE1):
+                    self.out_table_comp[i-first,count_a] = sensor_data
+
+                if (sensor_data > (self.TE2)):
+                    self.out_table[i-first,count_a]      = sensor_data
+                    self.out_table_tof[i-first,count_a]  = sensor_data_tof
 
                 if ((sensor_data > self.TE1) and (sensor_data <= self.TE2)):
                     self.subth_QDC_L1[i-first,L1_index] = self.subth_QDC_L1[i-first,L1_index] + sensor_data
@@ -241,15 +248,21 @@ class DAQ_MODEL(object):
                     L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
                                         order='F')))
                 # Read data from out_table
-                data = self.out_table[i-first,L1_SiPM.T]
+                data = self.out_table_comp[i-first,L1_SiPM.T]
                 data = data.reshape(1,-1)[0]
 
                 data_enc_L1    = ET.encoder(L1,data,TH_enc)
+
                 data_enc_event = np.hstack((data_enc_event,data_enc_L1))
-
+            #print data_enc_event.shape
             # Store compressed information for every event
-            self.data_enc = np.vstack((self.data_enc,data_enc_event))
+            if (flag_first == True):
+                self.data_enc = data_enc_event
+                flag_first = False
+            else:
+                self.data_enc = np.vstack((self.data_enc,data_enc_event))
 
+            #ET.L1_size_compressed = size_comp
 
             index_1 = 0
             for L1 in self.L1:
@@ -269,7 +282,7 @@ class DAQ_MODEL(object):
 
 
         # In the end we apply the same threshold for reconstructed
-        self.data_recons = self.data_recons * (self.data_recons > self.TE2)
+        self.data_recons = self.data_recons * (self.data_recons > self.TE1)
 
 
 
@@ -322,17 +335,25 @@ class DAQ_MODEL(object):
                 self.sipm_iter1B[i,0] = np.argmin(np.sqrt(np.sum(np.square(self.sensors_t[:,1:]-self.gamma2_i1[i,:]),axis=1))) + self.sensors[0]
 
 
-    def add_event_batch(self):
-        self.out_table_B = np.vstack((self.out_table_B,self.out_table))
-        self.out_table_tof_B = np.vstack((self.out_table_tof_B,self.out_table_tof))
-        self.data_enc_B = np.vstack((self.data_enc_B,self.data_enc))
-        self.data_recons_B = np.vstack((self.data_recons_B,self.data_recons))
-        self.subth_QDC_L1_B = np.vstack((self.subth_QDC_L1_B,self.subth_QDC_L1))
-        self.subth_TDC_L1_B = np.vstack((self.subth_TDC_L1_B,self.subth_TDC_L1))
-        # self.gamma1_i1_B = np.vstack((self.gamma1_i1_B,self.gamma1_i1))
-        # self.gamma2_i1_B = np.vstack((self.gamma2_i1_B,self.gamma2_i1))
-        # self.sipm_iter1A_B = np.vstack((self.sipm_iter1A_B,self.sipm_iter1A))
-        # self.sipm_iter1B_B = np.vstack((self.sipm_iter1B_B,self.sipm_iter1B))
+    def add_event_batch(self,index):
+        if (index==0):
+            self.out_table_B = self.out_table
+            self.out_table_tof_B = self.out_table_tof
+            self.data_enc_B = self.data_enc
+            self.data_recons_B = self.data_recons
+            self.subth_QDC_L1_B = self.subth_QDC_L1
+            self.subth_TDC_L1_B = self.subth_TDC_L1
+        else:
+            self.out_table_B = np.vstack((self.out_table_B,self.out_table))
+            self.out_table_tof_B = np.vstack((self.out_table_tof_B,self.out_table_tof))
+            self.data_enc_B = np.vstack((self.data_enc_B,self.data_enc))
+            self.data_recons_B = np.vstack((self.data_recons_B,self.data_recons))
+            self.subth_QDC_L1_B = np.vstack((self.subth_QDC_L1_B,self.subth_QDC_L1))
+            self.subth_TDC_L1_B = np.vstack((self.subth_TDC_L1_B,self.subth_TDC_L1))
+            # self.gamma1_i1_B = np.vstack((self.gamma1_i1_B,self.gamma1_i1))
+            # self.gamma2_i1_B = np.vstack((self.gamma2_i1_B,self.gamma2_i1))
+            # self.sipm_iter1A_B = np.vstack((self.sipm_iter1A_B,self.sipm_iter1A))
+            # self.sipm_iter1B_B = np.vstack((self.sipm_iter1B_B,self.sipm_iter1B))
 
 
 def DAQ_out(file_number,path,jsonfilename,encoder_data,Tenc):
@@ -353,7 +374,7 @@ def DAQ_out(file_number,path,jsonfilename,encoder_data,Tenc):
         TEST_c.read_data(np.arange(x,x_1))
         #diff_threshold allows to send only useful information
         TEST_c.process(np.arange(x,x_1),enc_threshold,Tenc)
-        TEST_c.add_event_batch()
+        TEST_c.add_event_batch(i)
         print ("BATCH %d DONE" % i)
         i+=1
 
@@ -402,16 +423,19 @@ if __name__ == "__main__":
 
 
     # Keras Model read hack:
+    try:
+        with tb.open_file(path + encoder_file[2:] + ".h5") as h5file:
+            B=[]
+            for array in h5file.walk_nodes("/"):
+                B.append(array)
+            COMP={}
+            COMP={'ENC_bias_A'   :np.array([B[-2][:]],dtype=float).T,
+                 'ENC_weights_A' :np.array(B[-1][:],dtype=float),
+                 'DEC_bias_A'    :np.array([B[-4][:]],dtype=float).T,
+                 'DEC_weights_A' :np.array(B[-3][:],dtype=float)}
+    except:
+        COMP={'base':SIM_JSON.data['L1']['wav_base']}
 
-    with tb.open_file(path + encoder_file[2:] + ".h5") as h5file:
-        B=[]
-        for array in h5file.walk_nodes("/"):
-            B.append(array)
-        COMP={}
-        COMP={'ENC_bias_A'   :np.array([B[-2][:]],dtype=float).T,
-             'ENC_weights_A' :np.array(B[-1][:],dtype=float),
-             'DEC_bias_A'    :np.array([B[-4][:]],dtype=float).T,
-             'DEC_weights_A' :np.array(B[-3][:],dtype=float)}
     try:
         with np.load(path + encoder_file[2:] + ".npz") as MMfile:
             COMP['maxA'] = MMfile['arr_0']

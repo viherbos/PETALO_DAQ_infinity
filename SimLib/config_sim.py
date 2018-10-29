@@ -61,8 +61,8 @@ class SIM_DATA(object):
                                         'map_style'     :'striped_3',
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
                                         'L1_mapping_O'  :[10,10,10,10,10,10],
-                                        'enc_out_len'   :1920,
-                                        'Tenc'          :0.05
+                                        'Tenc'          :0.05,
+                                        'wav_base'      :'bior2.2'
                                         }
                        }
 # 'L1_mapping_O'  :[11,12,12,12,12,12]
