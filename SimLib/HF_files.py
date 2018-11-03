@@ -568,7 +568,7 @@ class encoder_graphs(object):
     def __init__(self,config_file,data_path):
         self.config_file = config_file
         self.data_path   = data_path
-
+        self.sipm_polar = 0
 
     def measure(self,event,**kargs):
 
@@ -804,6 +804,252 @@ class encoder_graphs(object):
         plt.savefig(self.data_path + self.config_file + ".pdf")
 
 
+class wavelet_graphs(object):
+    def __init__(self,config_file,data_path):
+        self.config_file = config_file
+        self.data_path   = data_path
+        self.sipm_polar = 0
+
+    def measure(self,event,**kargs):
+
+        roi_size    = kargs['roi_size']   # = 32
+        roi_height  = kargs['roi_height'] # = 16
+        offset      = kargs['offset']     # int(self.sipm_polar[0,0])
+        radius      = kargs['radius']     # 161
+        SiPM_Matrix = kargs['SiPM_Matrix'] # with OFFSET !!!!
+        d_TE        = kargs['d_TE']
+        d_recons    = kargs['d_recons']
+
+
+        max_sipm = np.argwhere(d_TE[event,:] == np.max(d_TE[event,:]))+offset
+        x_y  = np.argwhere(SiPM_Matrix == max_sipm[0])
+
+        # Build ROIs for subevents
+        roi_matrix1  = np.roll(SiPM_Matrix,roi_size//2-x_y[0,1],axis=1)[:,0:roi_size].astype(int)
+        roi_matrix2  = np.roll(SiPM_Matrix,roi_size//2-x_y[0,1]-SiPM_Matrix.shape[1]//2,axis=1)[:,0:roi_size].astype(int)
+
+        # Check if there is something on the opposite side
+        #if (np.max(d_TE[event,roi_matrix2-offset]) == 0):
+        #    roi_matrix2 = np.array([[]])
+
+        roi_center1 = roi_matrix1[ roi_height//2, roi_size//2 ]
+        roi_center2 = roi_matrix2[ roi_height//2, roi_size//2 ]
+
+        # Get subevent values
+        subevent1_o = d_TE[event,roi_matrix1-offset]
+        subevent1_r = d_recons[event,roi_matrix1-offset]
+        if (roi_matrix2.size > 0):
+            subevent2_o = d_TE[event,roi_matrix2-offset]
+            subevent2_r = d_recons[event,roi_matrix2-offset]
+        else:
+            subevent2_o = np.array([[]])
+            subevent2_r = np.array([[]])
+
+        # Measure parameters
+        # No need to normalize z
+        z_mean1_o =np.mean(subevent1_o*self.sipm_polar[roi_matrix1-offset,2])
+        z_mean2_o =np.mean(subevent2_o*self.sipm_polar[roi_matrix2-offset,2])
+        z_mean1_r =np.mean(subevent1_r*self.sipm_polar[roi_matrix1-offset,2])
+        z_mean2_r =np.mean(subevent2_r*self.sipm_polar[roi_matrix2-offset,2])
+
+        # Phi must me normalized to avoid -pi,+pi effects
+        phi_mean1_o = np.mean(subevent1_o*(self.sipm_polar[roi_matrix1-offset,3]-self.sipm_polar[roi_center1-offset,3]))
+        phi_mean2_o = np.mean(subevent2_o*(self.sipm_polar[roi_matrix2-offset,3]-self.sipm_polar[roi_center2-offset,3]))
+        phi_mean1_r = np.mean(subevent1_r*(self.sipm_polar[roi_matrix1-offset,3]-self.sipm_polar[roi_center1-offset,3]))
+        phi_mean2_r = np.mean(subevent2_r*(self.sipm_polar[roi_matrix2-offset,3]-self.sipm_polar[roi_center2-offset,3]))
+
+        z_std1_o   = np.sqrt(np.mean(subevent1_o*(self.sipm_polar[roi_matrix1-offset,2]-z_mean1_o)**2))
+        z_std2_o   = np.sqrt(np.mean(subevent2_o*(self.sipm_polar[roi_matrix2-offset,2]-z_mean2_o)**2))
+        z_std1_r   = np.sqrt(np.mean(subevent1_r*(self.sipm_polar[roi_matrix1-offset,2]-z_mean1_r)**2))
+        z_std2_r   = np.sqrt(np.mean(subevent2_r*(self.sipm_polar[roi_matrix2-offset,2]-z_mean2_r)**2))
+
+        phi_std1_o = np.sqrt(np.mean(subevent1_o*((self.sipm_polar[roi_matrix1-offset,3]-self.sipm_polar[roi_center1-offset,3]-phi_mean1_o)**2)))
+        phi_std2_o = np.sqrt(np.mean(subevent2_o*((self.sipm_polar[roi_matrix2-offset,3]-self.sipm_polar[roi_center2-offset,3]-phi_mean2_o)**2)))
+        phi_std1_r = np.sqrt(np.mean(subevent1_r*((self.sipm_polar[roi_matrix1-offset,3]-self.sipm_polar[roi_center1-offset,3]-phi_mean1_r)**2)))
+        phi_std2_r = np.sqrt(np.mean(subevent2_r*((self.sipm_polar[roi_matrix2-offset,3]-self.sipm_polar[roi_center2-offset,3]-phi_mean2_r)**2)))
+
+        phi_std1_cart_o = phi_std1_o * radius
+        phi_std2_cart_o = phi_std2_o * radius
+        phi_std1_cart_r = phi_std1_r * radius
+        phi_std2_cart_r = phi_std2_r * radius
+
+        sigma_comb1_o = np.sqrt(z_std1_o**2+phi_std1_cart_o**2)
+        sigma_comb2_o = np.sqrt(z_std2_o**2+phi_std2_cart_o**2)
+        sigma_comb1_r = np.sqrt(z_std1_r**2+phi_std1_cart_r**2)
+        sigma_comb2_r = np.sqrt(z_std2_r**2+phi_std2_cart_r**2)
+
+        out_o, out_r = {},{}
+
+        out_o['z_mean1']     = z_mean1_o        ; out_o['z_mean2']     = z_mean2_o
+        out_o['phi_mean1']   = phi_mean1_o      ; out_o['phi_mean2']   = phi_mean2_o
+        out_o['z_std1']      = z_std1_o         ; out_o['z_std2']      = z_std2_o
+        out_o['phi_std1']    = phi_std1_cart_o  ; out_o['phi_std2']    = phi_std2_cart_o
+        out_o['sigma_comb1'] = sigma_comb1_o    ; out_o['sigma_comb2'] = sigma_comb2_o
+
+        out_r['z_mean1']     = z_mean1_r        ; out_r['z_mean2']     = z_mean2_r
+        out_r['phi_mean1']   = phi_mean1_r      ; out_r['phi_mean2']   = phi_mean2_r
+        out_r['z_std1']      = z_std1_r         ; out_r['z_std2']      = z_std2_r
+        out_r['phi_std1']    = phi_std1_cart_r  ; out_r['phi_std2']    = phi_std2_cart_r
+        out_r['sigma_comb1'] = sigma_comb1_r    ; out_r['sigma_comb2'] = sigma_comb2_r
+
+        return out_o, out_r
+
+
+
+    def __call__(self,roi_size,roi_height):
+
+        CONFIG = CFG.SIM_DATA(filename = self.data_path + \
+                                         self.config_file+".json",
+                              read     = True)
+        orig_array=[]
+        enco_array=[]
+        TE_data_array=[]
+        ENC_data_array=[]
+        W_data_array=[]
+
+        n_files             = CONFIG.data['ENVIRONMENT']['n_files']
+        path                = CONFIG.data['ENVIRONMENT']['path_to_files']
+        MC_out_file_name    = CONFIG.data['ENVIRONMENT']['MC_out_file_name']
+        radius              = CONFIG.data['TOPOLOGY']['radius_ext']
+
+
+        # Sensor Positions
+        sipm_cart = np.array(pd.read_hdf(path + MC_out_file_name + "." + \
+                                         str(n_files[0]).zfill(3) + ".h5",
+                                         key='sensors'))
+        self.sipm_polar = np.zeros(sipm_cart.shape)
+        # Columns -> [sensor,r,z,phi]
+        self.sipm_polar[:,0] = sipm_cart[:,0]
+        self.sipm_polar[:,1] = np.sqrt(np.square(sipm_cart[:,1])+np.square(sipm_cart[:,2]))
+        self.sipm_polar[:,2] = sipm_cart[:,3]
+        self.sipm_polar[:,3] = np.arctan2(sipm_cart[:,2],sipm_cart[:,1])
+
+        # Get SiPM Mapping
+        L1, I, SiPM_Matrix, topo = SM.SiPM_Mapping(CONFIG.data,CONFIG.data['L1']['map_style'])
+        offset = int(self.sipm_polar[0,0])
+        SiPM_Matrix = SiPM_Matrix + offset
+
+
+        for j in n_files:
+            d_recons  = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_recons'))
+            d_TE      = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_TE'))
+            d_LL = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_encoded_LL'))
+            d_LH = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_encoded_LH'))
+            d_HL = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
+                                 key='MC_encoded_HL'))
+
+            for i in range(d_TE.shape[0]):
+
+                original,encoded = self.measure( event       = i,
+                                                roi_size    = roi_size,
+                                                roi_height  = roi_height,
+                                                offset      = offset,
+                                                radius      = radius,
+                                                SiPM_Matrix = SiPM_Matrix,
+                                                d_TE        = d_TE,
+                                                d_recons    = d_recons)
+
+                orig_array.append(original)
+                enco_array.append(encoded)
+
+                # Data compression statistics
+                TE_data_array.append(8 + np.sum(d_TE[i,:]>0)*21)
+
+                LL_data = np.sum(d_LL[i,:]>0)
+                LH_data = np.sum(np.abs(d_LH[i,:])>0)
+                HL_data = np.sum(np.abs(d_HL[i,:])>0)
+                W_shared = np.sum((np.abs(d_HL[i,:])>0)+(np.abs(d_LH[i,:])>0)+(d_LL[i,:]>0))
+                W_data_array.append(8 + W_shared*10 + LL_data*12 + LH_data*4 + HL_data*4 + 2)
+            #               N_DATA    N_SiPM        N_LL        N_LH          N_HL    WP
+            #(Add 2 bits for N_packets, but N_HL and N_LH are coded with 1 bits less each)
+
+        # Processing DONE now ERROR computation
+        orig_np = np.array([np.array(list(orig_array[i].values()),dtype=float) for i in range(len(orig_array))])
+        enco_np = np.array([np.array(list(enco_array[i].values()),dtype=float) for i in range(len(enco_array))])
+        #'sigma_comb2'|'sigma_comb1'|'phi_std1'|'phi_std2'|'phi_mean1'|'phi_mean2'|'z_mean1'|'z_mean2'|'z_std2'|'z_std1'
+
+        Error = orig_np-enco_np
+        z_m_err   = np.concatenate((Error[:,6],Error[:,7]))
+        phi_m_err = np.concatenate((Error[:,4],Error[:,5]))*radius
+        phi_s_err = np.concatenate((Error[:,2],Error[:,3]))
+        z_s_err   = np.concatenate((Error[:,8],Error[:,9]))
+
+        z_m_err   = z_m_err[(z_m_err>-1) * (z_m_err<1) * (z_m_err!=0)]
+        phi_m_err = phi_m_err[(phi_m_err>-1) * (phi_m_err<1) * (phi_m_err!=0)]
+        # Filter to avoid most of "close to pi" errors
+        phi_s_err = phi_s_err[(phi_s_err>-2) * (phi_s_err<2) * (phi_s_err!=0)]
+        z_s_err   = z_s_err[(z_s_err>-2) * (z_s_err<2)* (z_s_err!=0)]
+
+
+        # Now the plotting stuff
+        err_fit = fit_library.GND_fit()
+        g_fit   = fit_library.gauss_fit()
+
+        fig = plt.figure(figsize=(10,10))
+        g_fit(z_m_err,'sqrt')
+        g_fit.plot(axis = fig.add_subplot(321),
+                        title = "Z mean ERROR",
+                        xlabel = "mm",
+                        ylabel = "Hits",
+                        res = False, fit = True)
+        g_fit(phi_m_err,'sqrt')
+        g_fit.plot(axis = fig.add_subplot(322),
+                        title = "PHI mean ERROR",
+                        xlabel = "mm",
+                        ylabel = "Hits",
+                        res = False, fit = True)
+        g_fit(z_s_err,'sqrt')
+        g_fit.plot(axis = fig.add_subplot(323),
+                        title = "Z sigma ERROR",
+                        xlabel = "mm",
+                        ylabel = "Hits",
+                        res = False, fit = True)
+        g_fit(phi_s_err,'sqrt')
+        g_fit.plot(axis = fig.add_subplot(324),
+                        title = "PHI sigma ERROR",
+                        xlabel = "mm",
+                        ylabel = "Hits",
+                        res = False, fit = True)
+
+
+        data_sent = fig.add_subplot(325)
+        g_fit(TE_data_array,100)
+        x_data = g_fit.bin_centers[g_fit.bin_centers<4000]
+        data_sent.bar(x_data,g_fit.hist[:len(x_data)],color='b')
+        g_fit(W_data_array,100)
+        x_data = g_fit.bin_centers[g_fit.bin_centers<4000]
+        data_sent.bar(x_data,g_fit.hist[:len(x_data)],color='r')
+
+        data_sent.set_title("DATA sent in TE mode & ENCODER mode")
+        data_sent.set_xlabel("Number of Words")
+        data_sent.set_ylabel("Red - ENCODER (words)) / Blue - TE (words)")
+
+        diff_data = np.array(TE_data_array)-np.array(W_data_array)
+        g_fit(diff_data[diff_data<1000],'sqrt')
+        diff = fig.add_subplot(326)
+        g_fit.plot(axis = diff,
+                        title = "Difference in Data sent in both modes",
+                        xlabel = "Number of Words",
+                        ylabel = "Hits",
+                        res = False, fit = False)
+        diff.text(0.99,0.97,(("DATA SENT in TE MODE  = %d bits\n" + \
+                              "DATA SENT in ENCODER MODE = %d bits\n" + \
+                              "COMPRESS RATIO = %f \n") % \
+                              (np.sum(TE_data_array),np.sum(W_data_array),
+                               float(np.sum(W_data_array))/float(np.sum(TE_data_array)))),
+                                fontsize=8,
+                                verticalalignment='top',
+                                horizontalalignment='right',
+                                transform=diff.transAxes)
+
+        fig.tight_layout()
+        #plt.show()
+        plt.savefig(self.data_path + self.config_file + ".pdf")
+
 def main():
     # A = infinity_graphs(["OF_4mm_BUF640_V3"],
     #                      "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/4mm_pitch/")
@@ -821,7 +1067,7 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = encoder_graphs("./VER6/test_TENC150","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A = wavelet_graphs("./WAVELET_P1/test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
     A(roi_size=32,roi_height=16)
 
     # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",

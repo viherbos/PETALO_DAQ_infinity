@@ -68,11 +68,11 @@ class DAQ_MODEL(object):
         self.extents  = np.array([])
         self.sensors  = np.array([])
         self.n_events = 0
-        self.out_table = np.array([])
-        self.out_table_tof = np.array([])
+        self.out_table = np.array([],dtype='float')
+        self.out_table_tof = np.array([],dtype='float')
 
-        self.data_enc = np.array([])
-        self.data_recons = np.array([])
+        self.data_enc = np.array([],dtype='float')
+        self.data_recons = np.array([],dtype='float')
 
         self.sensors_t = np.array([])
         self.gamma1_i1 = np.array([])
@@ -81,9 +81,14 @@ class DAQ_MODEL(object):
         self.h5file = None
 
 
+    def q_d(self,data,bits,FS):
+        bins = np.arange(FS[0],FS[1],float(FS[1]-FS[0])/(2**bits),dtype=float)
+        data[data>bins[-1]] = FS[1]-float(FS[1]-FS[0])/(2**bits)
+        data[data<bins[0]] = FS[0]
+        return bins[np.digitize(data,bins,right=True)]
+
 
     def read_files(self):
-
         os.chdir(self.path)
         self.waves   = np.array( pd.read_hdf(self.in_file,key='MC/waveforms'),
                             dtype = 'int32')
@@ -100,7 +105,7 @@ class DAQ_MODEL(object):
         self.h5file = tb.open_file(self.in_file, mode="r")
         self.table = self.h5file.root.MC.particles
 
-        self.events_infile  = self.extents.shape[0]
+        self.events_infile  = 1000 #self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
@@ -133,7 +138,11 @@ class DAQ_MODEL(object):
                                              columns=self.sensors)
             tof_array = pd.DataFrame( data=self.out_table_tof_B,
                                              columns=self.sensors)
-            enc_array    = pd.DataFrame( data=self.data_enc_B)
+
+            enc_array_LL = pd.DataFrame( data=self.data_enc_LL_B)
+            enc_array_LH = pd.DataFrame( data=self.data_enc_LH_B)
+            enc_array_HL = pd.DataFrame( data=self.data_enc_HL_B)
+
             recons_array = pd.DataFrame( data=self.data_recons_B,
                                              columns=self.sensors)
 
@@ -161,7 +170,9 @@ class DAQ_MODEL(object):
             store.put('sipm2L1',sipm2L1)
             store.put('subth_QDC_L1',subth_QDC_L1)
             store.put('subth_TDC_L1',subth_TDC_L1)
-            store.put('MC_encoded',enc_array)
+            store.put('MC_encoded_LL',enc_array_LL)
+            store.put('MC_encoded_LH',enc_array_LH)
+            store.put('MC_encoded_HL',enc_array_HL)
             store.put('MC_recons',recons_array)
             store.close()
 
@@ -181,7 +192,7 @@ class DAQ_MODEL(object):
                   'TE2':self.TE2,
                   'n_sensors':self.n_sensors}
 
-        ET = ENC.encoder_tools_Z(**kwargs)
+        ET = ENC.encoder_tools_PW(**kwargs)
         # Find OFFSETs for thresholds
         if (len(self.COMP.keys()) > 1):
             ET.THRESHOLD = ET.encoder(self.L1[0],np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
@@ -212,8 +223,8 @@ class DAQ_MODEL(object):
                 else:
                     sensor_data_tof = np.amin(event_tof[condition_tof,1])*self.time_bin
 
-                if (sensor_data > self.TE1):
-                    self.out_table_comp[i-first,count_a] = sensor_data
+                if (sensor_data > self.TE2):
+                    self.out_table_comp[i-first,count_a] = sensor_data.astype('float')
 
                 if (sensor_data > (self.TE2)):
                     self.out_table[i-first,count_a]      = sensor_data
@@ -240,7 +251,10 @@ class DAQ_MODEL(object):
             TH_enc = diff_threshold
 
             # ENCODER WORKS per L1 basis
-            data_enc_event = np.array([[]],dtype='float')
+            data_enc_event_LL = np.array([[]],dtype='float')
+            data_enc_event_LH = np.array([[]],dtype='float')
+            data_enc_event_HL = np.array([[]],dtype='float')
+
             for L1 in self.L1:
                 # Find SiPM included in L1
                 L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
@@ -248,21 +262,41 @@ class DAQ_MODEL(object):
                     L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
                                         order='F')))
                 # Read data from out_table
-                data = self.out_table_comp[i-first,L1_SiPM.T]
+                data = self.out_table_comp[i-first,L1_SiPM.T].astype('float')
                 data = data.reshape(1,-1)[0]
 
-                data_enc_L1    = ET.encoder(L1,data,TH_enc)
+                aux_wav_L1    = ET.encoder(L1,data)
 
-                data_enc_event = np.hstack((data_enc_event,data_enc_L1))
+                data_enc_event_LL = np.hstack((data_enc_event_LL,aux_wav_L1[0]))
+                data_enc_event_LH = np.hstack((data_enc_event_LH,aux_wav_L1[1]))
+                data_enc_event_HL = np.hstack((data_enc_event_HL,aux_wav_L1[2]))
+
             #print data_enc_event.shape
             # Store compressed information for every event
             if (flag_first == True):
-                self.data_enc = data_enc_event
+                self.data_enc_LL = data_enc_event_LL
+                self.data_enc_LH = data_enc_event_LH
+                self.data_enc_HL = data_enc_event_HL
                 flag_first = False
             else:
-                self.data_enc = np.vstack((self.data_enc,data_enc_event))
+                self.data_enc_LL = np.vstack((self.data_enc_LL,data_enc_event_LL))
+                self.data_enc_LH = np.vstack((self.data_enc_LH,data_enc_event_LH))
+                self.data_enc_HL = np.vstack((self.data_enc_HL,data_enc_event_HL))
 
-            #ET.L1_size_compressed = size_comp
+
+            # Quantize and clip
+            T_LL = self.SIM_CONT.data['L1']['TW'][0]
+            T_LH = self.SIM_CONT.data['L1']['TW'][1]
+            T_HL = self.SIM_CONT.data['L1']['TW'][2]
+            Q_LL = self.SIM_CONT.data['L1']['QW'][0]
+            Q_LH = self.SIM_CONT.data['L1']['QW'][1]
+            Q_HL = self.SIM_CONT.data['L1']['QW'][2]
+            self.data_enc_LL = self.q_d(self.data_enc_LL,Q_LL,[0,1200])
+            self.data_enc_LH = self.q_d(self.data_enc_LH,Q_LH,[-600,600])
+            self.data_enc_HL = self.q_d(self.data_enc_HL,Q_HL,[-600,600])
+            self.data_enc_LL[np.abs(self.data_enc_LL)<T_LL] = 0
+            self.data_enc_LH[np.abs(self.data_enc_LH)<T_LH] = 0
+            self.data_enc_HL[np.abs(self.data_enc_HL)<T_HL] = 0
 
             index_1 = 0
             for L1 in self.L1:
@@ -271,8 +305,11 @@ class DAQ_MODEL(object):
                 for asic in L1:
                     L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),
                                         order='F')))
-                data_enc_aux = self.data_enc[i-first,:]
-                index_1,recons_event = ET.decoder(L1_SiPM, data_enc_aux, index_1)
+                LL_aux = self.data_enc_LL[i-first,:]
+                LH_aux = self.data_enc_LH[i-first,:]
+                HL_aux = self.data_enc_HL[i-first,:]
+
+                index_1,recons_event = ET.decoder(L1_SiPM,LL_aux,LH_aux,HL_aux,index_1)
 
                 for sipm_id in L1_SiPM:
                     # data_recons_event is now a matrix with same shape as L1_SiPM (see below)
@@ -282,7 +319,7 @@ class DAQ_MODEL(object):
 
 
         # In the end we apply the same threshold for reconstructed
-        self.data_recons = self.data_recons * (self.data_recons > self.TE1)
+        #self.data_recons = self.data_recons * (self.data_recons > self.TE1)
 
 
 
@@ -339,14 +376,18 @@ class DAQ_MODEL(object):
         if (index==0):
             self.out_table_B = self.out_table
             self.out_table_tof_B = self.out_table_tof
-            self.data_enc_B = self.data_enc
+            self.data_enc_LL_B = self.data_enc_LL
+            self.data_enc_LH_B = self.data_enc_LH
+            self.data_enc_HL_B = self.data_enc_HL
             self.data_recons_B = self.data_recons
             self.subth_QDC_L1_B = self.subth_QDC_L1
             self.subth_TDC_L1_B = self.subth_TDC_L1
         else:
             self.out_table_B = np.vstack((self.out_table_B,self.out_table))
             self.out_table_tof_B = np.vstack((self.out_table_tof_B,self.out_table_tof))
-            self.data_enc_B = np.vstack((self.data_enc_B,self.data_enc))
+            self.data_enc_LL_B = np.vstack((self.data_enc_LL_B,self.data_enc_LL))
+            self.data_enc_LH_B = np.vstack((self.data_enc_LH_B,self.data_enc_LH))
+            self.data_enc_HL_B = np.vstack((self.data_enc_HL_B,self.data_enc_HL))
             self.data_recons_B = np.vstack((self.data_recons_B,self.data_recons))
             self.subth_QDC_L1_B = np.vstack((self.subth_QDC_L1_B,self.subth_QDC_L1))
             self.subth_TDC_L1_B = np.vstack((self.subth_TDC_L1_B,self.subth_TDC_L1))
@@ -478,7 +519,7 @@ if __name__ == "__main__":
 
     toc = time.time()
     print("You made me waste %d seconds of my precious time in this simulation" % (toc-tic))
-    #DAQ_out(0,**kargs)
+    # DAQ_out(0,**kargs)
 
-    A = HF.encoder_graphs(json_file,path)
+    A = HF.wavelet_graphs(json_file,path)
     A(roi_size=32,roi_height=16)

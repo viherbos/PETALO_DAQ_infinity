@@ -97,6 +97,46 @@ class encoder_tools(object):
         return index_1,recons_event.T
 
 
+class encoder_tools_Z(object):
+
+    def __init__(self,**param):
+        self.n_rows      = param['n_rows']
+        self.COMP        = param['COMP']
+        #self.L1          = param['L1']
+        self.TE2         = param['TE2']
+        self.n_sensors   = param['n_sensors']
+        self.THRESHOLD   = 0
+
+    def sigmoid(self, x, derivative=False):
+        return x*(1-x) if derivative else 1/(1+np.exp(-x))
+
+
+    def encoder(self,L1,data,diff_threshold):
+
+        data_enc_aux = self.sigmoid(np.dot(data/100,self.COMP['ENC_weights_A']) + self.COMP['ENC_bias_A'].T)
+
+        cond_TENC = np.abs((data_enc_aux - self.THRESHOLD)) > diff_threshold*self.THRESHOLD
+        data_enc_aux = (data_enc_aux-self.THRESHOLD)*cond_TENC
+
+        return data_enc_aux
+
+
+    def decoder(self,L1_SiPM,data_enc,index_1):
+
+        L1_size_compressed = self.COMP['DEC_weights_A'].shape[0]
+        index_2 = index_1 + L1_size_compressed
+
+        data_recons_event = data_enc[index_1:index_2] + self.THRESHOLD
+
+        recons_event = self.sigmoid(np.dot(data_recons_event,self.COMP['DEC_weights_A']) + self.COMP['DEC_bias_A'].T)
+        recons_event = recons_event.reshape((self.COMP['DEC_weights_A'].shape[1]//self.n_rows),self.n_rows)
+
+        index_1 = index_2
+
+        return index_1,100*recons_event.T
+
+
+
 class encoder_tools_N(object):
 
     def __init__(self,**param):
@@ -178,6 +218,48 @@ class encoder_tools_W(object):
                             (np.zeros(data_recons_event.shape),
                             np.zeros(data_recons_event.shape),
                             np.zeros(data_recons_event.shape))), self.base)
+
+        recons_event = data_recons_event #.reshape(self.n_rows,-1)
+
+        index_1 = index_2
+
+        return index_1,recons_event
+
+
+class encoder_tools_PW(object):
+
+    def __init__(self,**param):
+        self.n_rows      = param['n_rows']
+        self.COMP        = param['COMP']
+        #self.L1          = param['L1']
+        self.TE2         = param['TE2']
+        self.n_sensors   = param['n_sensors']
+        self.THRESHOLD   = 0
+        self.L1_size_compressed = 0
+        self.base = self.COMP['base']
+
+
+    def encoder(self,L1,data):
+
+        aux_data = data.reshape(-1,self.n_rows).T
+
+        LL_aux,(LH_aux,HL_aux,HH_aux) = pywt.dwt2(aux_data, self.base)
+
+        self.L1_size_compressed = LL_aux.shape
+
+        return [LL_aux.reshape(1,-1),LH_aux.reshape(1,-1),HL_aux.reshape(1,-1)]
+
+
+    def decoder(self,L1_SiPM,enc_LL,enc_LH,enc_HL,index_1):
+
+        L1_size_compressed = self.L1_size_compressed[0]*self.L1_size_compressed[1]
+        index_2 = index_1 + L1_size_compressed
+        rec_LL = enc_LL[index_1:index_2].reshape(self.L1_size_compressed[0],-1)
+        rec_LH = enc_LH[index_1:index_2].reshape(self.L1_size_compressed[0],-1)
+        rec_HL = enc_HL[index_1:index_2].reshape(self.L1_size_compressed[0],-1)
+
+        data_recons_event = pywt.idwt2(
+                            [rec_LL,[rec_LH,rec_HL,np.zeros(rec_LL.shape)]], self.base)
 
         recons_event = data_recons_event #.reshape(self.n_rows,-1)
 
