@@ -963,9 +963,9 @@ class wavelet_graphs(object):
                 LH_data = np.sum(np.abs(d_LH[i,:])>0)
                 HL_data = np.sum(np.abs(d_HL[i,:])>0)
                 W_shared = np.sum((np.abs(d_HL[i,:])>0)+(np.abs(d_LH[i,:])>0)+(d_LL[i,:]>0))
-                W_data_array.append(8 + W_shared*10 + LL_data*12 + LH_data*4 + HL_data*4 + 2)
-            #               N_DATA    N_SiPM        N_LL        N_LH          N_HL    WP
-            #(Add 2 bits for N_packets, but N_HL and N_LH are coded with 1 bits less each)
+                W_data_array.append(8 + W_shared*(10+2) + LL_data*12 + LH_data*4 + HL_data*4)
+                 #               N_DATA    N_Pixel + WP        N_LL        N_LH          N_HL
+
 
         # Processing DONE now ERROR computation
         orig_np = np.array([np.array(list(orig_array[i].values()),dtype=float) for i in range(len(orig_array))])

@@ -230,13 +230,12 @@ class encoder_tools_PW(object):
 
     def __init__(self,**param):
         self.n_rows      = param['n_rows']
-        self.COMP        = param['COMP']
         #self.L1          = param['L1']
         self.TE2         = param['TE2']
         self.n_sensors   = param['n_sensors']
         self.THRESHOLD   = 0
         self.L1_size_compressed = 0
-        self.base = self.COMP['base']
+        self.base = param['base']
 
 
     def encoder(self,L1,data):

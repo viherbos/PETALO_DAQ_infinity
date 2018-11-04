@@ -110,6 +110,26 @@ def L1_outframe_nbits(data, frame_type=1, n_CH=7,
     return (frame_type + c*n_CH + TDCmin + data*(CH+QDC) + Subthr_sum)
 
 
+def L1_outframe_nbits_WAV(data, TW, frame_type=1, n_CH=7,
+                            TDCmin=26, CH=10, QDC=10, Subthr_sum=10):
+########################################################################
+# DATAFRAME FIELDS
+# TYPE  | n_CH | TDCmin | n_CH  * [PIX | PW  |  LL | LH | HL]  | Sbth sum(QDC)
+#  1b   |  7b  |  26b   | n_PIX * (10b + 2b  + 12b + 4b   4b)  | 10 b B_QDC
+########################################################################
+    LL_data = np.sum(np.abs(data[2:162])>TW[0])
+    LH_data = np.sum(np.abs(data[162:322])>TW[1])
+    HL_data = np.sum(np.abs(data[322:482])>TW[2])
+    W_shared = np.sum((np.abs(data[2:162])>TW[2])+\
+                      (np.abs(data[162:322])>TW[1])+\
+                      (np.abs(data[322:482])>TW[0]))
+
+    BITS = n_CH + W_shared*(CH + 2) + LL_data*12 + LH_data*4 + HL_data*4 + Subthr_sum
+         # N_DATA    N_Pixel + WP        N_LL        N_LH          N_HL  +  Sbth
+
+    return BITS
+
+
 
 class producer(object):
     """ Sends data to a given channel. DATA has 3 elements:
@@ -858,6 +878,366 @@ class L1_ENCODER(object):
             # FIFO read delay
 
             n_bits_in_frame = L1_outframe_nbits(msg['data'][0])
+
+            delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
+            yield self.env.timeout(int(delay))
+            msg['out_time'] = self.env.now
+            self.out_stream.append(msg)
+
+
+    def __call__(self):
+        output = {  'lostL1b':self.lostB,
+                    'logA'   :self.logA,
+                    'logB'   :self.logB,
+                    'logC'   :self.logC,
+                    'data_out':self.out_stream}
+
+        return output
+
+
+class L1_WAVELET(object):
+    """ L1 model.
+        Methods
+
+        Parameters
+
+    """
+    def __init__(self,env,out_stream,param,SiPM_Matrix):
+        self.env            = env
+        self.SiPM_Matrix    = SiPM_Matrix
+        self.first_sipm     = param.P['TOPOLOGY']['first_sipm']
+        self.param          = param
+        self.out_stream     = out_stream
+        self.latency        = int(1E9/param.P['L1']['L1_outrate'])
+        self.fifoA          = simpy.Store(self.env,
+                                    capacity=param.P['L1']['FIFO_L1a_depth'])
+        self.fifoB          = simpy.Store(self.env,
+                                    capacity=param.P['L1']['FIFO_L1b_depth'])
+        self.buffer_A       = np.array([]).reshape(0,6)
+        self.buffer_B       = np.array([]).reshape(0,6)
+        # self.flag           = False
+        self.frame_count    = 0
+        self.lostB          = 0
+        self.action1        = env.process(self.PreBUFFER_load())
+        self.action2        = env.process(self.L1_outlink())
+        self.process_frames = env.process(self.process_frames_2BUF())
+        self.act_buffer_proc = env.event()
+        # self.act_ENCODER_proc = env.event()
+        self.flag           = simpy.Resource(self.env,capacity=1)
+        # self.flag_ENC       = simpy.Resource(self.env,capacity=1)
+
+        self.logA = np.array([]).reshape(0,2)
+        self.logB = np.array([]).reshape(0,2)
+        self.logC = np.array([]).reshape(0,2)
+        self.n_rows = self.param.P['TOPOLOGY']['n_rows']
+
+        self.empty = [{'data'      :[1,-1,-1,0,0],
+                   'in_time'   :-1,
+                   'out_time'  :0
+                  }]
+        self.out_array = [self.empty for i in range(2)]
+
+
+        self.i_out_array = 0
+
+        n_sipms_int = param.P['TOPOLOGY']['sipm_int_row']*param.P['TOPOLOGY']['n_rows']
+        n_sipms_ext = param.P['TOPOLOGY']['sipm_ext_row']*param.P['TOPOLOGY']['n_rows']
+        self.n_sipms     = n_sipms_int + n_sipms_ext
+
+        # Let's find index of L1_Slice
+        style = param.P['L1']['map_style']
+        L1_Slice, SiPM_Matrix_I, SiPM_Matrix_O, topology = MAP.SiPM_Mapping(param.P, style)
+        self.L1_id = L1_Slice.index(SiPM_Matrix)
+        print("L1_id is %d" % self.L1_id)
+
+        self.TW = param.P['L1']['TW']
+
+
+        kwargs = {'n_rows':param.P['TOPOLOGY']['n_rows'],
+                  'TE2':param.P['L1']['TE'],
+                  'n_sensors':0,
+                  'base':param.P['L1']['wav_base']}
+
+        self.compress = ET.encoder_tools_PW(**kwargs)
+
+
+    def print_statsA(self,in_time=0):
+        self.logA=np.vstack([self.logA,[len(self.fifoA.items),in_time]])
+        #self.env.now]])
+        # FIFO Statistics
+    def print_statsB(self):
+        self.logB=np.vstack([self.logB,[len(self.fifoB.items),self.env.now]])
+        # FIFO Statistics
+    def print_statsC(self,n_frames):
+        self.logC=np.vstack([self.logC,[n_frames,self.env.now]])
+        # Frame Statistics
+
+
+    def process_frames_2BUF(self):
+        while True:
+            yield self.act_buffer_proc
+            # Wait until act_buffer_proc is triggered
+
+            with self.flag.request() as request_flag:
+                yield request_flag
+                # buffer: (data | event | sensor_id | asic_id | in_time | out_time
+                out=[]
+                while (self.buffer_B.shape[0]>0):
+                    time = self.buffer_B[0,4]
+                    cond = np.array(self.buffer_B[:,4]==time)
+                    buffer_sel = self.buffer_B[cond,:]
+                    #Select those with same IN_TIME
+
+                    data_frame = [-1,time]
+                    sum_QDC = 0
+                    n_ch = 0
+                    for i in buffer_sel[:,:]:
+                        if i[0] > self.param.P['L1']['TE']:
+                            data_frame.append(i[2])
+                            data_frame.append(i[0])
+                            n_ch +=1
+                        else:
+                            sum_QDC += i[0]
+                    if (n_ch == 0):
+                        data_frame.append(11111)
+                        data_frame.append(0)
+                    # This is for any SiPM in the ASIC
+                    data_frame.append(sum_QDC)
+
+                    data_frame[0] = n_ch
+
+                    # Build Data frame
+                    # data_frame: [n_ch | in_time | n_ch*[sensor_id | QDC]] | sum_QDC<TE2]
+                    out.extend([{'data'      :data_frame,
+                                #'event'     :self.buffer[0,1],
+                                #'asic_id'   :self.buffer[0,3],
+                                'in_time'   :time,
+                                'out_time'  :0
+                                }])
+
+                    #take all the used data out of the buffer
+                    cond_not = np.invert(cond)
+                    self.buffer_B = self.buffer_B[cond_not]
+
+
+                # Leave statistics as they are for the moment
+                self.print_statsC(len(out))
+
+                # Processor Call
+                # ENCODER latency included in frame process parameters
+                # The processing is carried out in a sliding window fashion
+                # Statistics show a n buffer time fragmentation which will be
+                # out_array length
+
+                self.out_array[0] = out
+                out_B = self.process_WAVELET()
+
+                if (out_B != -1):
+                    self.out_array = np.roll(self.out_array,1)
+                    self.out_array[0] = 0
+
+                    yield self.env.timeout(self.param.P['L1']['frame_process'])
+
+                    # Write Output Frames to output FIFO
+                    cnt = 0
+                    for i in out_B:
+                        if ((i['data'][2] != 11111) and (i['data'][0]>0)):
+                        #if ((len(i['data'][2])>1) and (i['data'][0]>0)):
+                            cnt = cnt + 1
+                            # Data will be stored with its associated pixel
+                            self.lostB = self.putB(i,self.lostB)
+
+                            # DELAY COMPUTATION FOR WAVELET PACK
+                            n_WAV_OUTS = i['data'][0]
+                            yield self.env.timeout(n_WAV_OUTS*1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+                            # FIFO write delay
+
+                    self.flag.release(request_flag)
+                else:
+                    # OUT QUEUE NOT FULL YET
+                    self.out_array = np.roll(self.out_array,1)
+                    self.out_array[0] = 0
+                    self.flag.release(request_flag)
+
+
+    def process_WAVELET(self):
+
+        # # Compute threshold
+        # diff_threshold = self.param.P['L1']['Tenc']
+        # TH_enc    = self.compress.encoder(0,np.zeros((1,self.COMP['ENC_weights_A'].shape[0]),
+        #                                   dtype='float'),0)*diff_threshold
+
+        # Find SiPM included in L1
+        L1_SiPM = np.array([],dtype='int').reshape(self.n_rows,0)
+        for asic in self.SiPM_Matrix:
+            L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((self.n_rows,-1),order='F')))
+        #L1_SiPM = L1_SiPM.reshape(1,-1)[0]
+
+        first_sipm = self.param.P['TOPOLOGY']['first_sipm']
+        # First sipm correction
+
+        # out.extend([{'data'      :[n_ch | in_time | n_ch*[sensor_id | QDC]] | sum_QDC<TE2]
+        #             'in_time'   :time,
+        #             'out_time'  :0 }])
+        out_aux=[]
+
+        if (self.out_array[-1][0]['in_time']==-1):
+            return -1
+        # QUEUE NOT FULL YET
+        else:
+            for frame in self.out_array[-1]:
+                new_n_ch    = frame['data'][0]
+                new_in_time = frame['data'][1]
+                new_chdata  = frame['data'][2:-1]
+                new_sumQDC  = frame['data'][-1]
+
+                for prev_out in range(len(self.out_array[0:-1])):
+                    #select = [(prev_out[i]['in_time']==frame['in_time']) for i in range(len(prev_out))]
+                    #if (np.sum(select)>0):
+                    for x_data in range(len(self.out_array[prev_out])):
+                        #print prev_out,x_data
+                        #print self.out_array[prev_out][x_data]
+                        if ((self.out_array[prev_out][x_data]['in_time']==frame['in_time']) and
+                            (frame['in_time']!=-1)):
+                            #print "\n \n  HOLA \n \n"
+                            new_n_ch   +=  self.out_array[prev_out][x_data]['data'][0]
+                            # Number of channels are added
+                            new_chdata.extend(self.out_array[prev_out][x_data]['data'][2:-1])
+                            # Extend sensor_id|QDC data vector
+                            new_sumQDC +=  self.out_array[prev_out][x_data]['data'][-1]
+
+                            # Delete agregated element
+                            self.out_array[prev_out][x_data]=self.empty[0]
+
+                aux=[]
+                aux.extend([new_n_ch])
+                aux.extend([new_in_time])
+                aux.extend(new_chdata)
+                aux.extend([new_sumQDC])
+
+                frame['data']=aux
+                # Data is now agregated to the last out_array element
+                # Now each out['data'] corresponds to a L1 with a single event
+
+
+                # Now prepare the data exactly as in DAQ_fast
+                L1_event_data = frame['data'][2:-1]
+                sipm = np.array(L1_event_data[0::2],dtype='int')
+                sipm = sipm -first_sipm
+                qdc  = np.array(L1_event_data[1::2],dtype='float')
+
+
+                L1_vector_ord = np.zeros(self.n_sipms,dtype='float')
+                for el in sipm:
+                    if ((el < (self.n_sipms-1)) and (el > 0)):
+                        L1_vector_ord[el] = qdc[sipm==el]
+
+                L1_vector = L1_vector_ord[L1_SiPM.T]
+                L1_vector = L1_vector.reshape(1,-1)[0]
+
+                # Use the wavelet-encoder
+                data_enc_L1  = self.compress.encoder(0,L1_vector)
+
+                # The whole data packet will be sent but the delay will be computed as in real case
+
+                # # Arrange data into a dataframe scheme
+                # data_enc_pos = np.array([np.arange(len(data_enc_L1[0]))])
+                # selec_C = (data_enc_L1>0)
+                # data_enc_L1  = data_enc_L1[selec_C]
+                # data_enc_pos =  data_enc_pos[selec_C]+\
+                #                 self.L1_id*self.COMP['ENC_weights_A'].shape[1]
+                # # This generates a unique ENC out number
+                # frame_aux = [[data_enc_pos[k],data_enc_L1[k]] for k in range(len(data_enc_L1))]
+                # frame_aux = list(np.array(frame_aux).reshape(-1))
+                # frame_aux.append(frame['data'][-1])
+
+                W_shared = np.sum( (np.abs(data_enc_L1[0])>self.TW[0]) \
+                                 + (np.abs(data_enc_L1[1])>self.TW[1]) \
+                                 + (np.abs(data_enc_L1[2])>self.TW[2])   )
+
+                  #    (8 + W_shared*(10+2) + LL_data*12 + LH_data*4 + HL_data*4)
+                  #   N_DATA    N_Pixel + WP        N_LL        N_LH          N_HL
+
+
+                head = [W_shared,frame['in_time']]
+                #print len(data_enc_L1)
+                data_enc_L1 = np.array(data_enc_L1).reshape(1,-1)
+                head.extend(list(data_enc_L1[0]))
+
+                out_aux.extend([{'data':head,
+                                 'in_time':frame['in_time'],
+                                 'out_time':0
+                                 }])
+
+            return out_aux
+
+
+
+
+    def put(self,data,lost):
+        try:
+            if (len(self.fifoA.items)<(self.param.P['L1']['FIFO_L1a_depth'])):
+                self.fifoA.put(data)
+                self.print_statsA(self.env.now-data[4]) #Latency (in_time)
+                return lost
+            else:
+                raise Full('L1 FIFO A is FULL')
+        except Full as e:
+            print ("TIME: %s // %s" % (self.env.now,e.value))
+            return (lost+1)
+
+
+
+    def PreBUFFER_load(self):
+        while True:
+            frame = yield self.fifoA.get()
+            yield self.env.timeout(1.0E9/self.param.P['L1']['FIFO_L1a_freq'])
+            # FIFO read delay
+
+            if (self.frame_count < self.param.P['L1']['buffer_size']):
+                self.buffer_A = np.pad(self.buffer_A,((1,0),(0,0)),mode='constant')
+                self.buffer_A[0,:] = frame
+                self.frame_count += 1
+
+            if (self.frame_count == self.param.P['L1']['buffer_size']):
+                # Switch buffer and keep working
+                self.buffer_B = np.copy(self.buffer_A)
+                self.buffer_A = np.array([]).reshape(0,6)
+
+                try:
+                    if (self.flag.count == 0):
+                        self.act_buffer_proc.succeed()
+                        self.act_buffer_proc = self.env.event()
+                        # Sends START signal to frame buffer processor
+                        self.frame_count = 0
+                        # Reset frame_count to keep things moving
+                    else:
+                        raise Full('---- Frame Processor Overflow -----')
+                except Full as e:
+                    print ("TIME: %s // %s" % (self.env.now,e.value))
+
+
+    def putB(self,data,lost):
+        try:
+            if (len(self.fifoB.items)<(self.param.P['L1']['FIFO_L1b_depth'])):
+                self.fifoB.put(data)
+                self.print_statsB()
+                return lost
+            else:
+                raise Full('L1 FIFO B is FULL')
+        except Full as e:
+            print ("TIME: %s // %s" % (self.env.now,e.value))
+            return (lost+1)
+
+
+    def L1_outlink(self):
+        while True:
+            msg = yield self.fifoB.get()
+            n_WAV = msg['data'][0]
+            yield self.env.timeout(n_WAV*1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
+            # FIFO read delay
+
+            n_bits_in_frame = L1_outframe_nbits_WAV(msg['data'],self.TW)
 
             delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
             yield self.env.timeout(int(delay))
