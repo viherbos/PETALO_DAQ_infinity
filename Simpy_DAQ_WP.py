@@ -191,10 +191,10 @@ def DAQ_OUTPUT_processing_WAVELET(SIM_OUT,n_L1,n_asics,CG):
 
 
     # Timestamp Generator
-    n_words = np.zeros(len(A))
+    n_bits = np.zeros(len(A))
     # Buffer compression statistic
     for i in range(len(A)):
-        n_words[i] = A[i][0]
+        n_bits[i] = DAQ.L1_outframe_nbits_WAV(A[i],CG)
 
     time_vector = np.add.accumulate(timing)
     #Event number location
@@ -213,7 +213,8 @@ def DAQ_OUTPUT_processing_WAVELET(SIM_OUT,n_L1,n_asics,CG):
     event = 0
     A_index = 0
 
-    WP_len = CG['L1']['enc_out_len']
+    WP_len = CG['L1']['wav_blocksize']
+    bs     = CG['L1']['wav_blocksize']
     n_WP = WP_len * n_L1
 
     data_LL = np.zeros((n_events,n_WP),dtype='float')
@@ -225,9 +226,9 @@ def DAQ_OUTPUT_processing_WAVELET(SIM_OUT,n_L1,n_asics,CG):
             ind_t = event_order[event]
             #data[np.argwhere(time_vector==ind_t),int(A[A_index][2*l+2])] = A[A_index][2*l+3]
             L1_id2 = L1_id[A_index]
-            data_LL[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][2:162]
-            data_LH[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][162:322]
-            data_HL[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][322:482]
+            data_LL[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][2:bs+2]
+            data_LH[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][bs+2:2*bs+2]
+            data_HL[np.argwhere(time_vector==ind_t),int(L1_id2*WP_len):int((L1_id2+1)*WP_len)] = A[A_index][2*bs+2:3*bs+2]
 
             A_index += 1
 
@@ -249,7 +250,7 @@ def DAQ_OUTPUT_processing_WAVELET(SIM_OUT,n_L1,n_asics,CG):
                         'log_channels':log_channels,
                         'log_outlink':log_outlink},
 
-              'compress': n_words,
+              'compress': n_bits,
 
               'tstamp_event':event_order,
 
@@ -462,5 +463,5 @@ if __name__ == '__main__':
     #///                     DATA ANALYSIS AND GRAPHS               ///
     #//////////////////////////////////////////////////////////////////
 
-    graphic_out = HF.infinity_graphs([file_name],path)
+    graphic_out = HF.infinity_graphs_WP([file_name],path)
     graphic_out()

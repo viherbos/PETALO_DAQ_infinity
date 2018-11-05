@@ -178,19 +178,19 @@ class DAQ_MODEL(object):
 
 
 
-    def process(self,event_range,enc_threshold,diff_threshold):
+    def process(self,event_range,enc_threshold,diff_threshold,low_limit,low_limit_tof):
 
         n_sensors = self.n_sensors
 
-        low_limit = 0
-        low_limit_tof = 0
+        #low_limit = 0
+        #low_limit_tof = 0
         count = 0
         count_a = 0
 
         kwargs = {'n_rows':self.n_rows,
-                  'COMP':self.COMP,
                   'TE2':self.TE2,
-                  'n_sensors':self.n_sensors}
+                  'n_sensors':self.n_sensors,
+                  'base':self.SIM_CONT.data['L1']['wav_base']}
 
         ET = ENC.encoder_tools_PW(**kwargs)
         # Find OFFSETs for thresholds
@@ -201,6 +201,8 @@ class DAQ_MODEL(object):
 
         first = event_range[0]
         flag_first = True
+
+
 
         for i in event_range: #range(0,800): #self.n_events):
 
@@ -244,7 +246,7 @@ class DAQ_MODEL(object):
             count_a = 0
 
             ####################################################################
-            ###                    AUTOENCODER PROCESSING                    ###
+            ###                    WAVELET PROCESSING                        ###
             ####################################################################
 
 
@@ -316,7 +318,7 @@ class DAQ_MODEL(object):
                     # We apply the same threshold as for original data
                     self.data_recons[i-first,sipm_id] = recons_event[np.where(L1_SiPM==sipm_id)]
 
-
+        return low_limit,low_limit_tof
 
         # In the end we apply the same threshold for reconstructed
         #self.data_recons = self.data_recons * (self.data_recons > self.TE1)
@@ -411,10 +413,13 @@ def DAQ_out(file_number,path,jsonfilename,encoder_data,Tenc):
     low  = e_vec[:-1]
     high = e_vec[1:]
     i=0
+    low_limit=0
+    low_limit_tof=0
+
     for x,x_1 in zip(low,high):
         TEST_c.read_data(np.arange(x,x_1))
         #diff_threshold allows to send only useful information
-        TEST_c.process(np.arange(x,x_1),enc_threshold,Tenc)
+        low_limit,low_limit_tof = TEST_c.process(np.arange(x,x_1),enc_threshold,Tenc,low_limit,low_limit_tof)
         TEST_c.add_event_batch(i)
         print ("BATCH %d DONE" % i)
         i+=1

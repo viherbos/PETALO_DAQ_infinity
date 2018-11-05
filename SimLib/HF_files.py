@@ -72,7 +72,6 @@ class ENCODER_MAT2HF(object):
             store.close()
 
 
-
 class DAQ_IO(object):
     """ H5 access for DAQ.
         Methods
@@ -206,6 +205,7 @@ class hdf_access(object):
             for i in hdf.keys():
                 out[i] = pd.read_hdf(file_name,key=i)
         return out
+
 
 class hdf_compose(object):
     """ A utility class to access preprocessed data from MCs in hf5 format.
@@ -911,6 +911,7 @@ class wavelet_graphs(object):
         path                = CONFIG.data['ENVIRONMENT']['path_to_files']
         MC_out_file_name    = CONFIG.data['ENVIRONMENT']['MC_out_file_name']
         radius              = CONFIG.data['TOPOLOGY']['radius_ext']
+        n_rows              = CONFIG.data['TOPOLOGY']['n_rows']
 
 
         # Sensor Positions
@@ -930,6 +931,7 @@ class wavelet_graphs(object):
         SiPM_Matrix = SiPM_Matrix + offset
 
 
+
         for j in n_files:
             d_recons  = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
                                  key='MC_recons'))
@@ -941,6 +943,8 @@ class wavelet_graphs(object):
                                  key='MC_encoded_LH'))
             d_HL = np.array(pd.read_hdf(path + MC_out_file_name + "." + str(j).zfill(3) + ".h5",
                                  key='MC_encoded_HL'))
+
+
 
             for i in range(d_TE.shape[0]):
 
@@ -957,15 +961,40 @@ class wavelet_graphs(object):
                 enco_array.append(encoded)
 
                 # Data compression statistics
-                TE_data_array.append(8 + np.sum(d_TE[i,:]>0)*21)
+                L1_te_bits = 0
+                for m in L1:
+                    # Find SiPM included in m
+                    L1_SiPM = np.array([],dtype='int').reshape(n_rows,0)
+                    for asic in m:
+                        L1_SiPM = np.hstack((L1_SiPM,np.array(asic).reshape((n_rows,-1),
+                                            order='F')))
+                    # Read data from out_table
+                    data = d_TE[i,L1_SiPM]
+                    if (np.sum(data>CONFIG.data['L1']['TE'])>0):
+                        L1_te_bits = L1_te_bits + DAQ.L1_outframe_nbits(np.sum(data>CONFIG.data['L1']['TE']))
+                        
 
-                LL_data = np.sum(d_LL[i,:]>0)
-                LH_data = np.sum(np.abs(d_LH[i,:])>0)
-                HL_data = np.sum(np.abs(d_HL[i,:])>0)
-                W_shared = np.sum((np.abs(d_HL[i,:])>0)+(np.abs(d_LH[i,:])>0)+(d_LL[i,:]>0))
-                W_data_array.append(8 + W_shared*(10+2) + LL_data*12 + LH_data*4 + HL_data*4)
+                TE_data_array.append(L1_te_bits)
+
+                # LL_data = np.sum(d_LL[i,:]>0)
+                # LH_data = np.sum(np.abs(d_LH[i,:])>0)
+                # HL_data = np.sum(np.abs(d_HL[i,:])>0)
+                # W_shared = np.sum((np.abs(d_HL[i,:])>0)+(np.abs(d_LH[i,:])>0)+(d_LL[i,:]>0))
+                # W_data_array.append(8 + W_shared*(10+2) + LL_data*12 + LH_data*4 + HL_data*4)
                  #               N_DATA    N_Pixel + WP        N_LL        N_LH          N_HL
+                 # This MUST BE coherent with DAQ_infinity L1_outframe_nbits_WAV
 
+                n_bits = 0
+                for m in range(len(CONFIG.data['L1']['L1_mapping_O'])):
+                    data_aux = [0,0]
+                    data_aux.extend(list(d_LL[i,m*160:(m+1)*160]))
+                    data_aux.extend(list(d_LH[i,m*160:(m+1)*160]))
+                    data_aux.extend(list(d_HL[i,m*160:(m+1)*160]))
+                    if (np.sum(d_LL[i,m*160:(m+1)*160] > 0) > 0):
+                        L1_bits = DAQ.L1_outframe_nbits_WAV(np.array(data_aux),CONFIG.data)
+                        n_bits = n_bits + L1_bits
+
+                W_data_array.append(n_bits)
 
         # Processing DONE now ERROR computation
         orig_np = np.array([np.array(list(orig_array[i].values()),dtype=float) for i in range(len(orig_array))])
@@ -1025,11 +1054,11 @@ class wavelet_graphs(object):
         data_sent.bar(x_data,g_fit.hist[:len(x_data)],color='r')
 
         data_sent.set_title("DATA sent in TE mode & ENCODER mode")
-        data_sent.set_xlabel("Number of Words")
-        data_sent.set_ylabel("Red - ENCODER (words)) / Blue - TE (words)")
+        data_sent.set_xlabel("Number of bits")
+        data_sent.set_ylabel("Red - ENCODER (bits)) / Blue - TE (bits)")
 
         diff_data = np.array(TE_data_array)-np.array(W_data_array)
-        g_fit(diff_data[diff_data<1000],'sqrt')
+        g_fit(diff_data[diff_data<10000],'sqrt')
         diff = fig.add_subplot(326)
         g_fit.plot(axis = diff,
                         title = "Difference in Data sent in both modes",
@@ -1049,6 +1078,325 @@ class wavelet_graphs(object):
         fig.tight_layout()
         #plt.show()
         plt.savefig(self.data_path + self.config_file + ".pdf")
+
+
+class infinity_graphs_WP(object):
+    """ Data Analysis and Graphs generation
+    """
+    def __init__(self,config_file,data_path):
+        self.config_file = config_file
+        self.data_path   = data_path
+
+    def __call__(self):
+
+        # Read first config_file to get n_L1 (same for all files)
+        config_file = self.data_path + self.config_file[0] + ".json"
+        CG   = CFG.SIM_DATA(filename = config_file,read = True)
+        CG   = CG.data
+        n_L1 = np.array(CG['L1']['L1_mapping_O']).shape[0]
+
+        logA         = np.array([]).reshape(0,2)
+        logB         = np.array([]).reshape(0,2)
+        logC         = np.array([]).reshape(0,2)
+        log_channels = np.array([]).reshape(0,2)
+        log_outlink  = np.array([]).reshape(0,2)
+        in_time      = np.array([]).reshape(0,1)
+        out_time     = np.array([]).reshape(0,1)
+        lost         = np.array([]).reshape(0,4)
+        compress     = np.array([]).reshape(0,1)
+        frame_frag   = np.array([]).reshape(0,n_L1+1)
+
+        for i in self.config_file:
+            # jsonname = string.replace(i,"/","_")
+            # jsonname = string.replace(jsonname,".","")
+            start = i.rfind("/")
+            jsonname = i[start+1:]
+
+            config_file2 = self.data_path + i + ".json"
+            CG = CFG.SIM_DATA(filename = config_file2,read = True)
+            CG = CG.data
+            chain = CG['ENVIRONMENT']['out_file_name'][CG['ENVIRONMENT']['out_file_name'].rfind("./")+2:]
+            filename = chain + "_" + jsonname + ".h5"
+            filename = self.data_path + filename
+
+            logA         = np.vstack([logA,np.array(pd.read_hdf(filename,key='logA'))])
+            logB         = np.vstack([logB,np.array(pd.read_hdf(filename,key='logB'))])
+            logC         = np.vstack([logC,np.array(pd.read_hdf(filename,key='logC'))])
+            log_channels = np.vstack([log_channels,np.array(pd.read_hdf(filename,key='log_channels'))])
+            log_outlink  = np.vstack([log_outlink,np.array(pd.read_hdf(filename,key='log_outlink'))])
+            in_time      = np.vstack([in_time,np.array(pd.read_hdf(filename,key='in_time'))])
+            out_time     = np.vstack([out_time,np.array(pd.read_hdf(filename,key='out_time'))])
+            lost         = np.vstack([lost,np.array(pd.read_hdf(filename,key='lost'))])
+            compress     = np.vstack([compress,np.array(pd.read_hdf(filename,key='compress'))])
+            frame_frag   = np.vstack([frame_frag,np.array(pd.read_hdf(filename,key='frame_frag'))])
+
+        latency_L1 = logA[:,1]
+        latency    = out_time-in_time
+
+        print ("LOST DATA PRODUCER -> CH      = %d" % (lost[:,0].sum()))
+        print ("LOST DATA CHANNELS -> OUTLINK = %d" % (lost[:,1].sum()))
+        print ("LOST DATA OUTLINK  -> L1      = %d" % (lost[:,2].sum()))
+        print ("LOST DATA L1A -> L1B          = %d" % (lost[:,3].sum()))
+
+        WC_CH_FIFO    = float(max(log_channels[:,0])/CG['TOFPET']['IN_FIFO_depth'])*100
+        WC_OLINK_FIFO = float(max(log_outlink[:,0])/CG['TOFPET']['OUT_FIFO_depth'])*100
+        WC_L1_A_FIFO  = float(max(logA[:,0])/CG['L1']['FIFO_L1a_depth'])*100
+        WC_L1_B_FIFO  = float(max(logB[:,0])/CG['L1']['FIFO_L1b_depth'])*100
+
+
+        print ("\n \n BYE \n \n")
+
+        fit = fit_library.gauss_fit()
+        fig = plt.figure(figsize=(20,10))
+
+        fit(log_channels[:,0],range(1,CG['TOFPET']['IN_FIFO_depth']+2))
+        fit.plot(axis = fig.add_subplot(341),
+                title = "ASICS Channel Input analog FIFO (4)",
+                xlabel = "FIFO Occupancy",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(341).set_yscale('log')
+        fig.add_subplot(341).xaxis.set_major_locator(MaxNLocator(integer=True))
+        fig.add_subplot(341).text(0.99,0.97,(("ASIC Input FIFO reached %.1f %%" % \
+                                                (WC_CH_FIFO))),
+                                                fontsize=8,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(341).transAxes)
+
+        fit(log_outlink[:,0],CG['TOFPET']['OUT_FIFO_depth'])
+        fit.plot(axis = fig.add_subplot(342),
+                title = "ASICS Channels -> Outlink",
+                xlabel = "FIFO Occupancy",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(342).set_yscale('log')
+        fig.add_subplot(342).xaxis.set_major_locator(MaxNLocator(integer=True))
+        fig.add_subplot(342).text(0.99,0.97,(("ASIC Outlink FIFO reached %.1f %%" % \
+                                                (WC_OLINK_FIFO))),
+                                                fontsize=8,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(342).transAxes)
+
+        fit(logA[:,0],CG['L1']['FIFO_L1a_depth'])
+        fit.plot(axis = fig.add_subplot(346),
+                title = "ASICS -> L1A (FIFOA)",
+                xlabel = "FIFO Occupancy",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(346).set_yscale('log')
+        fig.add_subplot(346).xaxis.set_major_locator(MaxNLocator(integer=True))
+        fig.add_subplot(346).text(0.99,0.97,(("L1_A FIFO reached %.1f %%" % \
+                                                (WC_L1_A_FIFO))),
+                                                fontsize=8,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(346).transAxes)
+        fig.add_subplot(3,4,6).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+        fit(logB[:,0],CG['L1']['FIFO_L1b_depth'])
+        fit.plot(axis = fig.add_subplot(345),
+                title = "L1 OUTPUT (FIFOB)",
+                xlabel = "FIFO Occupancy",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(345).set_yscale('log')
+        fig.add_subplot(345).xaxis.set_major_locator(MaxNLocator(integer=True))
+        fig.add_subplot(345).text(0.99,0.97,(("L1_B FIFO reached %.1f %%" % \
+                                                (WC_L1_B_FIFO))),
+                                                fontsize=8,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(345).transAxes)
+        fig.add_subplot(3,4,5).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+        fit(logC[:,0],range(int(np.max(logC[:,0]))+2))
+        fit.plot(axis = fig.add_subplot(3,4,10),
+                title = "Number of Frames per Buffer",
+                xlabel = "Number of Frames",
+                ylabel = "Hits",
+                res = False, fit = True)
+        fig.add_subplot(3,4,10).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+        fit(latency,50)
+        fit.plot(axis = fig.add_subplot(343),
+                title = "Total Data Latency",
+                xlabel = "Latency in nanoseconds",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(343).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
+                                                (max(latency)))),
+                                                fontsize=7,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(343).transAxes)
+        fig.add_subplot(343).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+        new_axis = fig.add_subplot(347)
+        x_data = fit.bin_centers
+        y_data = np.add.accumulate(fit.hist_fit)/np.max(np.add.accumulate(fit.hist_fit))
+        new_axis.plot(x_data,y_data)
+        new_axis.set_ylim((0.9,1.0))
+        new_axis.set_xlabel("Latency in nanoseconds")
+        new_axis.set_ylabel("Percentage of Recovered Data")
+        new_axis.text(0.05,0.9,(("LOST DATA PRODUCER -> CH           = %d\n" + \
+                                 "LOST DATA CHANNELS -> OUTLINK  = %d\n" + \
+                                 "LOST DATA OUTLINK -> L1                = %d\n" + \
+                                 "LOST DATA L1A -> L1B                      = %d\n") % \
+                                (lost[:,0].sum(),
+                                 lost[:,1].sum(),
+                                 lost[:,2].sum().sum(),
+                                 lost[:,3].sum().sum())
+                                ),
+                                fontsize=8,
+                                verticalalignment='top',
+                                horizontalalignment='left',
+                                transform=new_axis.transAxes)
+
+        fit(latency_L1,50)
+        fit.plot(axis = fig.add_subplot(349),
+                title = "L1 input Data Latency",
+                xlabel = "Latency in nanoseconds",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(349).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
+                                                (max(latency_L1)))),
+                                                fontsize=7,
+                                                verticalalignment='top',
+                                                horizontalalignment='right',
+                                                transform=fig.add_subplot(349).transAxes)
+        fig.add_subplot(349).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+        fit(compress,int(np.max(compress)))
+        fit.plot(axis = fig.add_subplot(344),
+                title = "Data Frame Length",
+                xlabel = "Number of QDC fields",
+                ylabel = "Hits",
+                res = False,
+                fit = False)
+        fig.add_subplot(344).set_yscale('log')
+        fig.add_subplot(344).xaxis.set_major_locator(MaxNLocator(integer=True))
+        # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
+        A = np.arange(0,np.max(compress))
+        D_data = [DAQ.L1_outframe_nbits(i) for i in A]
+        #D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
+        D_save = (A-1)*10
+
+
+        B_data = np.multiply(D_data,fit.hist)
+        B_save = np.multiply(D_save,fit.hist)
+        B_save[0]=0
+        B_save[1]=0
+        new_axis_2 = fig.add_subplot(348)
+        x_data = fit.bin_centers
+        new_axis_2.bar(x_data,B_data,color='r')
+        new_axis_2.bar(x_data,B_save,color='b')
+        new_axis_2.set_title("Data sent vs frame length")
+        new_axis_2.set_xlabel("Length of frame in QDC data")
+        new_axis_2.set_ylabel("Red - Data sent (bits) / Blue - Data saved (bits)")
+
+        new_axis_2.text(0.99,0.97,(("TOTAL DATA SENT = %d bits\n" + \
+                                 "DATA REDUCTION  = %d bits\n" + \
+                                 "COMPRESS RATIO = %f \n") % \
+                                (np.sum(B_data),np.sum(B_save),float(np.sum(B_data))/float(np.sum(B_save)+np.sum(B_data)))),
+                                fontsize=8,
+                                verticalalignment='top',
+                                horizontalalignment='right',
+                                transform=new_axis_2.transAxes)
+
+
+        ############### FRAME FRAGMENTATION ANALYSIS ##########################
+        # TIME FRAGMENTATION
+        frag_matrix = frame_frag[1:,1:]
+        frag_matrix = frag_matrix.reshape(-1)
+        frag_matrix = (frag_matrix>0)*frag_matrix
+        fit(frag_matrix,range(1,int(np.max(frag_matrix))+2))
+        print int(np.max(frag_matrix))
+        fit.plot(axis = fig.add_subplot(3,4,11),
+                title = "Frame Fragmentation - (TIME)",
+                xlabel = "Frame pieces (Buffers)",
+                ylabel = "Hits",
+                res = False, fit = False)
+        fig.add_subplot(3,4,11).set_yscale('log')
+        fig.add_subplot(3,4,11).set_ylim(bottom=1)
+        fig.add_subplot(3,4,11).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+        # SPATIAL FRAGMENTATION
+        cluster_record = []
+        frag_matrix = frame_frag[:,1:]
+
+        for ev in frag_matrix:
+            clusters_aux = np.zeros((1,2))
+            clusters = np.array([]).reshape(0,2)
+            flag = False
+            L1_count = 0
+            # First element , Last element
+            for L1 in ev:
+                if (L1 > 0):
+                    # Cluster detected
+                    if (flag == False):
+                        # First element in the cluster
+                        clusters_aux[0,0] = L1_count
+                        clusters_aux[0,1] = L1_count
+                        flag = True
+                    else:
+                        # Inside the cluster
+                        clusters_aux[0,1] = L1_count
+                        flag = True
+
+                    if (L1_count == (n_L1-1)):
+                        clusters = np.vstack([clusters,clusters_aux])
+                else:
+                    if (flag == True):
+                        # End of cluster
+                        flag = False
+                        clusters = np.vstack([clusters,clusters_aux])
+                        clusters_aux = np.zeros((1,2))
+                    else:
+                        # No cluster detected
+                        flag = False
+
+                L1_count += 1
+
+            # Must solve special case of boundary cluster in circular buffer
+            if ((clusters[0,0] == 0) and (clusters[-1,1] == (L1_count-1))):
+                clusters[0,0] = clusters[-1,0]
+                clusters = clusters[:-1,:]
+
+            cluster_record.append(clusters)
+
+        cluster_lengths = []
+        # LET'S FIND CLUSTER LENGTHS
+        for i in cluster_record:
+            for j in i:
+                if (j[1] >= j[0]):
+                    cluster_lengths.append(int(j[1]-j[0]+1))
+                else:
+                    cluster_lengths.append(int(j[1]-j[0]+n_L1+1))
+
+        fit(cluster_lengths,range(1,int(np.max(cluster_lengths))+2))
+        fit.plot(axis = fig.add_subplot(3,4,12),
+                title = "Frame Fragmentation - (SPACE)",
+                xlabel = "Number of L1 per event",
+                ylabel = "Hits",
+                res = False,
+                fit = False)
+        fig.add_subplot(3,4,12).set_yscale('log')
+        fig.add_subplot(3,4,12).xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+        fig.tight_layout()
+
+        #plt.savefig(CG['ENVIRONMENT']['out_file_name']+"_"+ filename + ".pdf")
+        plt.savefig(filename + ".pdf")
+
+
+
+
 
 def main():
     # A = infinity_graphs(["OF_4mm_BUF640_V3"],

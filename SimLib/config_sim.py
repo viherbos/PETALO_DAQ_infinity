@@ -62,9 +62,11 @@ class SIM_DATA(object):
                                         'L1_mapping_I'  :[],#[8,8,8,8,8],
                                         'L1_mapping_O'  :[10,10,10,10,10,10],
                                         'Tenc'          :0.05,
-                                        'wav_base'      :'bior2.2',
+                                        'wav_base'      :'haar',
                                         'TW'            :[0,4,8],
-                                        'QW'            :[12,6,6]
+                                        'QW'            :[12,4,4],
+                                        "enc_out_len"   :160,
+	                                    "wav_blocksize" :160
                                         }
                        }
 # 'L1_mapping_O'  :[11,12,12,12,12,12]

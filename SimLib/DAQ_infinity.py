@@ -110,22 +110,26 @@ def L1_outframe_nbits(data, frame_type=1, n_CH=7,
     return (frame_type + c*n_CH + TDCmin + data*(CH+QDC) + Subthr_sum)
 
 
-def L1_outframe_nbits_WAV(data, TW, frame_type=1, n_CH=7,
+def L1_outframe_nbits_WAV(data, CFG, frame_type=1, n_CH=7,
                             TDCmin=26, CH=10, QDC=10, Subthr_sum=10):
 ########################################################################
 # DATAFRAME FIELDS
 # TYPE  | n_CH | TDCmin | n_CH  * [PIX | PW  |  LL | LH | HL]  | Sbth sum(QDC)
 #  1b   |  7b  |  26b   | n_PIX * (10b + 2b  + 12b + 4b   4b)  | 10 b B_QDC
 ########################################################################
-    LL_data = np.sum(np.abs(data[2:162])>TW[0])
-    LH_data = np.sum(np.abs(data[162:322])>TW[1])
-    HL_data = np.sum(np.abs(data[322:482])>TW[2])
-    W_shared = np.sum((np.abs(data[2:162])>TW[2])+\
-                      (np.abs(data[162:322])>TW[1])+\
-                      (np.abs(data[322:482])>TW[0]))
+    TW = CFG['L1']['TW']
+    bs = CFG['L1']['wav_blocksize']
+    qw = CFG['L1']['QW']
+    LL_data = np.sum(np.abs(data[2:bs+2])>TW[0])
+    LH_data = np.sum(np.abs(data[bs+2:2*bs+2])>TW[1])
+    HL_data = np.sum(np.abs(data[2*bs+2:3*bs+2])>TW[2])
+    W_shared = np.sum((np.abs(data[2:bs+2])>TW[0])+\
+                      (np.abs(data[bs+2:2*bs+2])>TW[1])+\
+                      (np.abs(data[2*bs+2:3*bs+2])>TW[2]))
 
-    BITS = n_CH + W_shared*(CH + 2) + LL_data*12 + LH_data*4 + HL_data*4 + Subthr_sum
-         # N_DATA    N_Pixel + WP        N_LL        N_LH          N_HL  +  Sbth
+    BITS = frame_type + TDCmin \
+         + n_CH    + W_shared*(CH + 2) + LL_data*qw[0] + LH_data*qw[1] + HL_data*qw[2] + Subthr_sum
+          # N_DATA      N_Pixel + WP        N_LL              N_LH          N_HL      +  Sbth
 
     return BITS
 
@@ -1169,6 +1173,9 @@ class L1_WAVELET(object):
                                  'out_time':0
                                  }])
 
+                # For Data Statistics
+                #data_before_comp = np.sum(L1_vector>self.param.P['L1']['TE'])
+
             return out_aux
 
 
@@ -1237,7 +1244,7 @@ class L1_WAVELET(object):
             yield self.env.timeout(n_WAV*1.0E9/self.param.P['L1']['FIFO_L1b_freq'])
             # FIFO read delay
 
-            n_bits_in_frame = L1_outframe_nbits_WAV(msg['data'],self.TW)
+            n_bits_in_frame = L1_outframe_nbits_WAV(msg['data'],self.param.P)
 
             delay = float(n_bits_in_frame)*(1.0E9/self.param.P['L1']['L1_outrate'])
             yield self.env.timeout(int(delay))
