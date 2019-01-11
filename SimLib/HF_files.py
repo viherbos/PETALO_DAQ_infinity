@@ -972,7 +972,7 @@ class wavelet_graphs(object):
                     data = d_TE[i,L1_SiPM]
                     if (np.sum(data>CONFIG.data['L1']['TE'])>0):
                         L1_te_bits = L1_te_bits + DAQ.L1_outframe_nbits(np.sum(data>CONFIG.data['L1']['TE']))
-                        
+
 
                 TE_data_array.append(L1_te_bits)
 
@@ -1019,18 +1019,18 @@ class wavelet_graphs(object):
         g_fit   = fit_library.gauss_fit()
 
         fig = plt.figure(figsize=(10,10))
-        g_fit(z_m_err,'sqrt')
-        g_fit.plot(axis = fig.add_subplot(321),
+        err_fit(z_m_err,'sqrt')
+        err_fit.plot(axis = fig.add_subplot(321),
                         title = "Z mean ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
-                        res = False, fit = True)
-        g_fit(phi_m_err,'sqrt')
-        g_fit.plot(axis = fig.add_subplot(322),
+                        res = True, fit = True)
+        err_fit(phi_m_err,'sqrt')
+        err_fit.plot(axis = fig.add_subplot(322),
                         title = "PHI mean ERROR",
                         xlabel = "mm",
                         ylabel = "Hits",
-                        res = False, fit = True)
+                        res = True, fit = True)
         g_fit(z_s_err,'sqrt')
         g_fit.plot(axis = fig.add_subplot(323),
                         title = "Z sigma ERROR",
@@ -1060,11 +1060,13 @@ class wavelet_graphs(object):
         diff_data = np.array(TE_data_array)-np.array(W_data_array)
         g_fit(diff_data[diff_data<10000],'sqrt')
         diff = fig.add_subplot(326)
+        diff.set_yscale('log')
         g_fit.plot(axis = diff,
                         title = "Difference in Data sent in both modes",
                         xlabel = "Number of Words",
                         ylabel = "Hits",
                         res = False, fit = False)
+
         diff.text(0.99,0.97,(("DATA SENT in TE MODE  = %d bits\n" + \
                               "DATA SENT in ENCODER MODE = %d bits\n" + \
                               "COMPRESS RATIO = %f \n") % \
@@ -1159,12 +1161,12 @@ class infinity_graphs_WP(object):
         fig.add_subplot(341).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(341).text(0.99,0.97,(("ASIC Input FIFO reached %.1f %%" % \
                                                 (WC_CH_FIFO))),
-                                                fontsize=8,
+                                                fontsize=9,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(341).transAxes)
 
-        fit(log_outlink[:,0],CG['TOFPET']['OUT_FIFO_depth'])
+        fit(log_outlink[:,0],range(1,CG['TOFPET']['OUT_FIFO_depth'],8))
         fit.plot(axis = fig.add_subplot(342),
                 title = "ASICS Channels -> Outlink",
                 xlabel = "FIFO Occupancy",
@@ -1174,12 +1176,12 @@ class infinity_graphs_WP(object):
         fig.add_subplot(342).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(342).text(0.99,0.97,(("ASIC Outlink FIFO reached %.1f %%" % \
                                                 (WC_OLINK_FIFO))),
-                                                fontsize=8,
+                                                fontsize=9,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(342).transAxes)
 
-        fit(logA[:,0],CG['L1']['FIFO_L1a_depth'])
+        fit(logA[:,0],range(1,CG['L1']['FIFO_L1a_depth']))
         fit.plot(axis = fig.add_subplot(346),
                 title = "ASICS -> L1A (FIFOA)",
                 xlabel = "FIFO Occupancy",
@@ -1189,13 +1191,13 @@ class infinity_graphs_WP(object):
         fig.add_subplot(346).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(346).text(0.99,0.97,(("L1_A FIFO reached %.1f %%" % \
                                                 (WC_L1_A_FIFO))),
-                                                fontsize=8,
+                                                fontsize=9,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(346).transAxes)
         fig.add_subplot(3,4,6).xaxis.set_major_locator(MaxNLocator(integer=True))
 
-        fit(logB[:,0],CG['L1']['FIFO_L1b_depth'])
+        fit(logB[:,0],range(1,CG['L1']['FIFO_L1b_depth'],2))
         fit.plot(axis = fig.add_subplot(345),
                 title = "L1 OUTPUT (FIFOB)",
                 xlabel = "FIFO Occupancy",
@@ -1205,14 +1207,14 @@ class infinity_graphs_WP(object):
         fig.add_subplot(345).xaxis.set_major_locator(MaxNLocator(integer=True))
         fig.add_subplot(345).text(0.99,0.97,(("L1_B FIFO reached %.1f %%" % \
                                                 (WC_L1_B_FIFO))),
-                                                fontsize=8,
+                                                fontsize=9,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(345).transAxes)
         fig.add_subplot(3,4,5).xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
-        fit(logC[:,0],range(int(np.max(logC[:,0]))+2))
+        fit(logC[:,0],range(8,int(np.max(logC[:,0]))+4))
         fit.plot(axis = fig.add_subplot(3,4,10),
                 title = "Number of Frames per Buffer",
                 xlabel = "Number of Frames",
@@ -1220,15 +1222,15 @@ class infinity_graphs_WP(object):
                 res = False, fit = True)
         fig.add_subplot(3,4,10).xaxis.set_major_locator(MaxNLocator(integer=True))
 
-        fit(latency,50)
+        fit(latency/1000.0,40)
         fit.plot(axis = fig.add_subplot(343),
                 title = "Total Data Latency",
-                xlabel = "Latency in nanoseconds",
+                xlabel = "Latency in microseconds",
                 ylabel = "Hits",
                 res = False, fit = False)
-        fig.add_subplot(343).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
-                                                (max(latency)))),
-                                                fontsize=7,
+        fig.add_subplot(343).text(0.99,0.8,(("WORST = %1.2f $\mu$s" % \
+                                                (max(latency)/1000.0))),
+                                                fontsize=8,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(343).transAxes)
@@ -1251,62 +1253,62 @@ class infinity_graphs_WP(object):
                                  lost[:,2].sum().sum(),
                                  lost[:,3].sum().sum())
                                 ),
-                                fontsize=8,
+                                fontsize=9,
                                 verticalalignment='top',
                                 horizontalalignment='left',
                                 transform=new_axis.transAxes)
 
-        fit(latency_L1,50)
+        fit(latency_L1/1000.0,30)
         fit.plot(axis = fig.add_subplot(349),
                 title = "L1 input Data Latency",
-                xlabel = "Latency in nanoseconds",
+                xlabel = "Latency in microseconds",
                 ylabel = "Hits",
                 res = False, fit = False)
-        fig.add_subplot(349).text(0.99,0.8,(("WORST LATENCY = %d ns" % \
-                                                (max(latency_L1)))),
-                                                fontsize=7,
+        fig.add_subplot(349).text(0.99,0.8,(("WORST = %1.2f $\mu$s" % \
+                                                (max(latency_L1)/1000.0))),
+                                                fontsize=9,
                                                 verticalalignment='top',
                                                 horizontalalignment='right',
                                                 transform=fig.add_subplot(349).transAxes)
         fig.add_subplot(349).xaxis.set_major_locator(MaxNLocator(integer=True))
+        fig.add_subplot(349).set_yscale('log')
 
-
-        fit(compress,int(np.max(compress)))
+        fit(compress,30) #range(int(np.max(compress))))
         fit.plot(axis = fig.add_subplot(344),
                 title = "Data Frame Length",
-                xlabel = "Number of QDC fields",
+                xlabel = "Bits",
                 ylabel = "Hits",
                 res = False,
                 fit = False)
         fig.add_subplot(344).set_yscale('log')
         fig.add_subplot(344).xaxis.set_major_locator(MaxNLocator(integer=True))
         # TOTAL NUMBER OF BITS vs COMPRESS EFFICIENCY
-        A = np.arange(0,np.max(compress))
-        D_data = [DAQ.L1_outframe_nbits(i) for i in A]
-        #D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
-        D_save = (A-1)*10
-
-
-        B_data = np.multiply(D_data,fit.hist)
-        B_save = np.multiply(D_save,fit.hist)
-        B_save[0]=0
-        B_save[1]=0
-        new_axis_2 = fig.add_subplot(348)
-        x_data = fit.bin_centers
-        new_axis_2.bar(x_data,B_data,color='r')
-        new_axis_2.bar(x_data,B_save,color='b')
-        new_axis_2.set_title("Data sent vs frame length")
-        new_axis_2.set_xlabel("Length of frame in QDC data")
-        new_axis_2.set_ylabel("Red - Data sent (bits) / Blue - Data saved (bits)")
-
-        new_axis_2.text(0.99,0.97,(("TOTAL DATA SENT = %d bits\n" + \
-                                 "DATA REDUCTION  = %d bits\n" + \
-                                 "COMPRESS RATIO = %f \n") % \
-                                (np.sum(B_data),np.sum(B_save),float(np.sum(B_data))/float(np.sum(B_save)+np.sum(B_data)))),
-                                fontsize=8,
-                                verticalalignment='top',
-                                horizontalalignment='right',
-                                transform=new_axis_2.transAxes)
+        # A = np.arange(0,np.max(compress))
+        # D_data = [DAQ.L1_outframe_nbits(i) for i in A]
+        # #D_data = 1 + 7*(A>0) + A * 23 + 10     #see DAQ_infinity
+        # D_save = (A-1)*10
+        #
+        #
+        # B_data = np.multiply(D_data,fit.hist)
+        # B_save = np.multiply(D_save,fit.hist)
+        # B_save[0]=0
+        # B_save[1]=0
+        # new_axis_2 = fig.add_subplot(348)
+        # x_data = fit.bin_centers
+        # new_axis_2.bar(x_data,B_data,color='r')
+        # new_axis_2.bar(x_data,B_save,color='b')
+        # new_axis_2.set_title("Data sent vs frame length")
+        # new_axis_2.set_xlabel("Length of frame in QDC data")
+        # new_axis_2.set_ylabel("Red - Data sent (bits) / Blue - Data saved (bits)")
+        #
+        # new_axis_2.text(0.99,0.97,(("TOTAL DATA SENT = %d bits\n" + \
+        #                          "DATA REDUCTION  = %d bits\n" + \
+        #                          "COMPRESS RATIO = %f \n") % \
+        #                         (np.sum(B_data),np.sum(B_save),float(np.sum(B_data))/float(np.sum(B_save)+np.sum(B_data)))),
+        #                         fontsize=8,
+        #                         verticalalignment='top',
+        #                         horizontalalignment='right',
+        #                         transform=new_axis_2.transAxes)
 
 
         ############### FRAME FRAGMENTATION ANALYSIS ##########################
@@ -1415,8 +1417,12 @@ def main():
     # print ("It took %d seconds to compose %d files" % (time_elapsed,
     #                                                    len(files)))
 
-    A = wavelet_graphs("./WAVELET_P1/test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
-    A(roi_size=32,roi_height=16)
+    #A = wavelet_graphs("./WAVELET_P1/test","/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    #A(roi_size=32,roi_height=16)
+
+    A = infinity_graphs_WP(["./WAVELET_P1/event_sim"],"/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/")
+    A()
+    #A(roi_size=32,roi_height=16)
 
     # A = ENCODER_MAT2HF(path = "/home/viherbos/DAQ_DATA/NEUTRINOS/PETit-ring/5mm_pitch/",
     #                       in_file = "compresores_pitch5mm_rad161mm_1_medio_ver1_export.mat",

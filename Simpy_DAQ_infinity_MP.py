@@ -322,10 +322,11 @@ if __name__ == '__main__':
     out = DAQ_OUTPUT_processing(SIM_OUT,n_L1,n_asics,sensors[0])
 
     # Write output to file
+    cfg_filename = file_name[file_name.rfind("/")+1:]
     DAQ_dump = HF.DAQ_IO(CG['ENVIRONMENT']['path_to_files'],
                     CG['ENVIRONMENT']['file_name'],
                     CG['ENVIRONMENT']['file_name']+"0.h5",
-                    CG['ENVIRONMENT']['out_file_name']+"_"+ file_name + ".h5")
+                    CG['ENVIRONMENT']['out_file_name']+"_"+ cfg_filename  + ".h5")
     logs = {  'logA':out['L1']['logA'],
               'logB':out['L1']['logB'],
               'logC':out['L1']['logC'],

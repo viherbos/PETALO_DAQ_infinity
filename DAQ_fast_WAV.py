@@ -105,7 +105,7 @@ class DAQ_MODEL(object):
         self.h5file = tb.open_file(self.in_file, mode="r")
         self.table = self.h5file.root.MC.particles
 
-        self.events_infile  = 1000 #self.extents.shape[0]
+        self.events_infile  = self.extents.shape[0]
         self.n_sensors      = self.sensors.shape[0]
 
         # Empty out matrices
